@@ -12,4 +12,7 @@ public interface AnswerRepository extends MongoRepository<AnswerGroup, String> {
     Optional<AnswerGroup> findByPrefabIdAndId(String prefabId, String answerId);
 
     Optional<List<AnswerGroup>> findByPrefabId(String prefabId);
+
+    // Delete by user id
+    void deleteByUserId(String id);
 }
