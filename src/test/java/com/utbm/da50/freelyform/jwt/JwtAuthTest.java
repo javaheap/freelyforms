@@ -70,7 +70,7 @@ public class JwtAuthTest {
         user.setPassword("password");
         user.setFirstName("John");
         user.setLastName("Doe");
-        user.setRole(UserRole.USER);
+        user.setRole(new HashSet<>(Collections.singleton(UserRole.USER)));
 
         userDetails = user;
     }

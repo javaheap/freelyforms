@@ -19,7 +19,7 @@ services:
       - "5005:5005"
     environment:
       SPRING_APPLICATION_JSON: '{
-                      "spring.data.mongodb.uri" : "mongodb://$MONGODB_USER:$MONGODB_PASSWORD@mongodb:$MONGODB_DOCKER_PORT/$MONGODB_DATABASE?authSource=admin"
+                      "spring.data.mongodb.uri" : "mongodb://$MONGODB_USER:$MONGODB_PASSWORD@mongo:$MONGODB_DOCKER_PORT/$MONGODB_DATABASE?authSource=admin"
             }'
     depends_on:
       - mongo
@@ -27,7 +27,7 @@ services:
   # DB
   mongo:
     image: mongo:5.0.2
-    container_name: mongodb
+    container_name: mongo
     env_file: ./.env
     environment:
       - MONGO_INITDB_ROOT_USERNAME=$MONGODB_USER

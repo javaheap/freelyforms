@@ -17,6 +17,9 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.Collections;
+import java.util.HashSet;
+
 @Service
 @RequiredArgsConstructor
 public class AuthenticationService {
@@ -28,12 +31,18 @@ public class AuthenticationService {
 
 
     public ResponseEntity<AuthenticationResponse> register(RegisterUserRequest request) {
+
+        // Check if email is already in use
+        if (userRepository.existsByEmail(request.getEmail())) {
+            return new ResponseEntity<>(HttpStatus.CONFLICT);
+        }
+
         User newUser = new User();
         newUser.setFirstName(request.getFirstName());
         newUser.setLastName(request.getLastName());
         newUser.setEmail(request.getEmail());
         newUser.setPassword(passwordEncoder.encode(request.getPassword()));
-        newUser.setRole(UserRole.USER);
+        newUser.setRole(new HashSet<>(Collections.singleton(UserRole.USER)));
 
         User user = userRepository.save(newUser);
         userRepository.save(user);

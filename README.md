@@ -20,6 +20,10 @@ Get the project up and running in just a few steps:
 
 ## 👩‍💻 **For Developers**
 
+### 🔥 **To connect as an admin**
+Email: admin@freelyform.com
+Password: admin123
+
 ### 🔥 **Hot Reload with IntelliJ IDEA**
 
 Make your development workflow smooth with **hot reload**! Here's how to set it up in IntelliJ:
