@@ -6,20 +6,22 @@ import com.utbm.da50.freelyform.model.Field;
 import com.utbm.da50.freelyform.model.Rule;
 import org.springframework.stereotype.Component;
 
+import java.util.regex.Pattern;
+
 @Component
-public class MaxLengthRule implements ValidationRule {
+public class IsEmailRule implements ValidationRule {
+    private static final String EMAIL_REGEX = "^[A-Za-z0-9+_.-]+@(.+)$"; // Email regex pattern
 
     @Override
     public void validate(Object userInput, Field field, Rule rule) throws ValidationRuleException {
-        int maxLength = Integer.parseInt(rule.getValue());
-
-        if (((String)userInput).length() > maxLength) {
-            throw new ValidationRuleException("Field " + field.getLabel() + " must have a maximum length of " + maxLength);
+        Pattern pattern = Pattern.compile(EMAIL_REGEX);
+        if (!pattern.matcher(userInput.toString()).matches()) {
+            throw new ValidationRuleException("The field " + field.getLabel() + " must be a valid email address.");
         }
     }
 
     @Override
     public TypeRule getRuleType() {
-        return TypeRule.MAX_LENGTH;
+        return TypeRule.IS_EMAIL;
     }
 }

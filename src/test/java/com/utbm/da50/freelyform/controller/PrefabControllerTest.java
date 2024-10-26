@@ -89,10 +89,9 @@ public class PrefabControllerTest {
     public void testGetPrefabById_NotFound() {
         when(prefabService.getPrefabById(anyString(), anyBoolean())).thenThrow(new NoSuchElementException());
 
-        assertThrows(ResponseStatusException.class, () -> {
-            prefabController.getPrefabById("invalid_id", false);
-        });
+        ResponseEntity<PrefabOutputDetailled> response = prefabController.getPrefabById("invalid_id", false);
 
+        assertThat(response.getStatusCode(), is(HttpStatus.NOT_FOUND));
         verify(prefabService, times(1)).getPrefabById(anyString(), anyBoolean());
     }
 

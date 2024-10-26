@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -88,5 +89,10 @@ public class PrefabService {
 
     public List<Prefab> getPrefabsByUser(String userId) {
         return repository.findByUserId(userId);
+    }
+
+    public boolean doesUserOwnPrefab(String userId, String prefabId) {
+        Optional<Prefab> prefab = repository.findById(prefabId);
+        return prefab.map(value -> value.getUserId().equals(userId)).orElse(false);
     }
 }
