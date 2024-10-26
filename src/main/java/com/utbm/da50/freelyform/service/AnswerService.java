@@ -213,10 +213,10 @@ public class AnswerService {
         System.out.print(answer == "No answer");
         System.out.print("\n");
 
-        if((answer == null || answer == "No answer") && field.getOptional())
+        if(answer == null && field.getOptional())
             return;
 
-        if((answer == null || answer == "No answer") && !field.getOptional())
+        if(answer == null && !field.getOptional())
             throw new ValidationException(String.format("Answer at the question '%s' is empty.",
                     question.getQuestion()));
 
