@@ -209,6 +209,17 @@ public class AnswerService {
                 return;
         }
 
+        System.out.print(answer);
+        System.out.print(answer == "No answer");
+        System.out.print("\n");
+
+        if((answer == null || answer == "No answer") && field.getOptional())
+            return;
+
+        if((answer == null || answer == "No answer") && !field.getOptional())
+            throw new ValidationException(String.format("Answer at the question '%s' is empty.",
+                    question.getQuestion()));
+
         validateAnswerType(answer, type);
         try{ // Validate the field rules
             fieldService.validateFieldsRules(field, answer);
