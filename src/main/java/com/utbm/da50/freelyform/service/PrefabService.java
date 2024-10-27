@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -56,9 +57,9 @@ public class PrefabService {
 
     /**
      * Get prefab by id and check if the user has already answered to this prefab
-     * @param id
+     * @param id prefab id
      * @param userId user id of the connected user
-     * @return
+     * @return prefab with the flag isAlreadyAnswered set to true if user has already answered
      */
     public Prefab getPrefabById(String id, String userId) {
         Prefab prefab = getPrefabById(id);
@@ -112,5 +113,8 @@ public class PrefabService {
         return repository.findByUserId(userId);
     }
 
-
+    public boolean doesUserOwnPrefab(String userId, String prefabId) {
+        Optional<Prefab> prefab = repository.findById(prefabId);
+        return prefab.map(value -> value.getUserId().equals(userId)).orElse(false);
+    }
 }
