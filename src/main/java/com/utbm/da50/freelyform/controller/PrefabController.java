@@ -74,7 +74,6 @@ public class PrefabController {
     {
         try {
             if(user!=null && withHidden){ // Handle isAlreadyAnswered field from the connected user
-                System.out.println("User is not null, withHidden is true");
                 return ResponseEntity.ok(prefabService.getPrefabById(id, user.getId()).toRest());
             }
             return ResponseEntity.ok(prefabService.getPrefabById(id, Boolean.valueOf(withHidden)).toRest());

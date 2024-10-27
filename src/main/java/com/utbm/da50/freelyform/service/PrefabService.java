@@ -63,14 +63,9 @@ public class PrefabService {
      */
     public Prefab getPrefabById(String id, String userId) {
         Prefab prefab = getPrefabById(id);
-        System.out.println(prefab.getIsAlreadyAnswered());
         // Set the flag if user has already answered or groups is empty or null
-        System.out.println(prefab.getGroups());
-        System.out.println(prefab.getGroups() == null);
-        System.out.println(prefab.getGroups().isEmpty());
         if (prefab.getGroups() == null || prefab.getGroups().isEmpty()) {
             prefab.setIsAlreadyAnswered(Boolean.TRUE);
-            System.out.println("Groups is empty");
             return prefab;
         }
         try {
