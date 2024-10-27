@@ -63,28 +63,34 @@ public class PrefabService {
      */
     public Prefab getPrefabById(String id, String userId) {
         Prefab prefab = getPrefabById(id);
+        System.out.println(prefab.getIsAlreadyAnswered());
         // Set the flag if user has already answered or groups is empty or null
+        System.out.println(prefab.getGroups());
+        System.out.println(prefab.getGroups() == null);
+        System.out.println(prefab.getGroups().isEmpty());
         if (prefab.getGroups() == null || prefab.getGroups().isEmpty()) {
-            prefab.setIsAlreadyAnswered(true);
+            prefab.setIsAlreadyAnswered(Boolean.TRUE);
+            System.out.println("Groups is empty");
             return prefab;
         }
         try {
             answerService.validateUniqueUserResponse(prefab.getId(), userId);
         } catch (UniqueResponseException e) {
-            prefab.setIsAlreadyAnswered(true);
+            prefab.setIsAlreadyAnswered(Boolean.TRUE);
         }
         return prefab;
     }
 
 
     public Prefab getPrefabById(String prefabId) throws NoSuchElementException {
-        return getPrefabById(prefabId, true);
+        return getPrefabById(prefabId, Boolean.TRUE);
     }
 
     public Prefab getPrefabById(String prefabId, Boolean withHiddenFields) throws NoSuchElementException {
         Prefab p = repository.findById(prefabId).orElseThrow(
                 () -> new NoSuchElementException("Prefab with id " + prefabId + " not found")
         );
+        if (p.getGroups() == null || p.getGroups().isEmpty()) p.setIsAlreadyAnswered(Boolean.TRUE);
         if (withHiddenFields)
             return p;
         return Prefab.builder()
@@ -93,6 +99,7 @@ public class PrefabService {
                 .description(p.getDescription())
                 .tags(p.getTags())
                 .isActive(p.getIsActive())
+                .isAlreadyAnswered(p.getIsAlreadyAnswered())
                 .groups(
                         p.getGroups().stream()
                                 .map(group -> {
@@ -115,6 +122,6 @@ public class PrefabService {
 
     public boolean doesUserOwnPrefab(String userId, String prefabId) {
         Optional<Prefab> prefab = repository.findById(prefabId);
-        return prefab.map(value -> value.getUserId().equals(userId)).orElse(false);
+        return prefab.map(value -> (Boolean) value.getUserId().equals(userId)).orElse(Boolean.FALSE);
     }
 }
