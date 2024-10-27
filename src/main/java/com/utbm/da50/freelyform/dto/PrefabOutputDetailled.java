@@ -14,15 +14,17 @@ import java.util.List;
 @NoArgsConstructor
 public class PrefabOutputDetailled extends PrefabInput implements PrefabOutput{
     private String id;
+    private Boolean isAlreadyAnswered;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
     public PrefabOutputDetailled(String id, String name, String description,
                                  LocalDateTime createdAt, LocalDateTime updatedAt,
-                                 String[] tags, List<GroupInput> groups, Boolean isActive) {
+                                 String[] tags, List<GroupInput> groups, Boolean isActive, Boolean isAlreadyAnswered) {
         super(name, description, tags, isActive, groups);
         this.id = id;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
+        this.isAlreadyAnswered = isAlreadyAnswered;
     }
 }

@@ -125,7 +125,7 @@ public class AnswerService {
      * @param userId   the ID of the user
      * @throws UniqueResponseException if a response with the same prefab ID and user ID already exists
      */
-    public void validateUniqueUserResponse(String prefabId, String userId) {
+    public void validateUniqueUserResponse(String prefabId, String userId) throws UniqueResponseException {
         if (!Objects.equals(userId, "guest") && answerRepository.existsByPrefabIdAndUserId(prefabId, userId)) {
             throw new UniqueResponseException(
                     String.format("A response with prefabId '%s' and userId '%s' already exists.", prefabId, userId)
