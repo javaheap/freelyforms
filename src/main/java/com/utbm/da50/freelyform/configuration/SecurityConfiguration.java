@@ -43,8 +43,7 @@ public class SecurityConfiguration {
                         "/webjars/**"
                 ).permitAll() // Permit Swagger UI and Auth endpoints
                 .requestMatchers("/v1/prefabs/{id}",
-                        "v1/answers/{prefab_id}",
-                        "v1/answers/{prefab_id}/{answer_id}").permitAll() // Allow optional access to getPrefabById
+                        "v1/answers/{prefab_id}").permitAll() // Allow optional access to getPrefabById
                 .anyRequest().authenticated() // Secure all other endpoints
                 .and()
                 .sessionManagement()

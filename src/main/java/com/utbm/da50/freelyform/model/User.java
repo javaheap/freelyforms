@@ -2,6 +2,7 @@ package com.utbm.da50.freelyform.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.mongodb.lang.NonNull;
+import com.utbm.da50.freelyform.dto.user.UserSimpleResponse;
 import com.utbm.da50.freelyform.enums.UserRole;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -14,7 +15,9 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Document
 @NoArgsConstructor
@@ -37,14 +40,17 @@ public class User implements UserDetails {
     @NonNull
     private String password;
 
-    @Enumerated(EnumType.STRING)
-    private UserRole role;
+    private HashSet<UserRole> role;
 
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return List.of(new SimpleGrantedAuthority(role.name()));
+        if (role == null || role.isEmpty()) {
+            throw new IllegalStateException("User has no roles assigned");
+        }
+        return List.of(new SimpleGrantedAuthority(role.toString()));
     }
+
 
     @Override
     public String getUsername() {
@@ -70,4 +76,17 @@ public class User implements UserDetails {
     public boolean isEnabled() {
         return true;
     }
+
+
+    // For DTO conversion
+    public UserSimpleResponse toUserSimpleResponse() {
+        return new UserSimpleResponse(
+                id,
+                firstName,
+                lastName,
+                email,
+                role
+        );
+    }
+
 }

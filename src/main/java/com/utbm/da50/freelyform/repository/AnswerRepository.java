@@ -9,7 +9,10 @@ import java.util.Optional;
 public interface AnswerRepository extends MongoRepository<AnswerGroup, String> {
     boolean existsByPrefabIdAndUserId(String prefabId, String token);
 
-    Optional<AnswerGroup> findByPrefabIdAndIdAndUserId(String prefabId, String answerId, String userId);
+    Optional<AnswerGroup> findByPrefabIdAndId(String prefabId, String answerId);
 
-    Optional<List<AnswerGroup>> findByPrefabIdAndUserId(String prefabId, String userId);
+    Optional<List<AnswerGroup>> findByPrefabId(String prefabId);
+
+    // Delete by user id
+    void deleteByUserId(String id);
 }

@@ -2,26 +2,21 @@ package com.utbm.da50.freelyform.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.mongodb.lang.NonNull;
-import com.utbm.da50.freelyform.dto.answer.AnswerOutput;
-import com.utbm.da50.freelyform.dto.answer.AnswerRequest;
-import com.utbm.da50.freelyform.dto.answer.AnswerUser;
-import com.utbm.da50.freelyform.enums.TypeField;
 import com.utbm.da50.freelyform.enums.TypeRule;
-import com.utbm.da50.freelyform.exceptions.UniqueResponseException;
-import com.utbm.da50.freelyform.exceptions.ValidationException;
-import com.utbm.da50.freelyform.exceptions.ResourceNotFoundException;
+import com.utbm.da50.freelyform.exceptions.*;
+import com.utbm.da50.freelyform.model.AnswerUser;
+import com.utbm.da50.freelyform.enums.TypeField;
 import com.utbm.da50.freelyform.model.*;
 import com.utbm.da50.freelyform.repository.AnswerRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /**
  * Service class for processing and validating answers submitted by users.
@@ -33,25 +28,23 @@ public class AnswerService {
     private final AnswerRepository answerRepository;
     private final PrefabService prefabService;
     private final UserService userService;
+    private final FieldService fieldService;
 
     /**
      * Processes a user's answer by validating it and saving it to the repository.
      *
      * @param prefabId the ID of the prefab associated with the answer
      * @param user     the user submitting the answer
-     * @param request  the answer request containing the answers
+     * @param answerGroup  the answer request containing the answers
      * @throws UniqueResponseException if a unique response exists or validation fails
      */
-    public void processAnswer(String prefabId, User user, @NonNull AnswerRequest request) {
+    public void processAnswer(String prefabId, User user, AnswerGroup answerGroup) throws RuntimeException {
         String userId = Optional.ofNullable(user).map(User::getId).orElse("guest");
         validateUniqueUserResponse(prefabId, userId);
-        checkFormPrefab(prefabId, request);
+        checkFormPrefab(prefabId, answerGroup);
 
-        AnswerGroup answerGroup = new AnswerGroup();
-        answerGroup.setPrefabId(prefabId);
-        answerGroup.setCreatedAt(LocalDate.now());
         answerGroup.setUserId(userId);
-        answerGroup.setAnswers(request.getAnswers());
+        answerGroup.setPrefabId(prefabId);
 
         answerRepository.save(answerGroup);
     }
@@ -64,19 +57,32 @@ public class AnswerService {
      * @return the found AnswerGroup
      * @throws ResourceNotFoundException if no response is found for the provided IDs
      */
-    public AnswerOutput getAnswerGroup(String prefabId, String answerId, User user) {
-        System.out.println(user);
-        String userId = "guest";
+    public AnswerGroup getAnswerGroup(String prefabId, String answerId, User user) {
+        String userId = user.getId();
 
-        if(user != null)
-            userId = user.getId();
+        if(!prefabService.doesUserOwnPrefab(userId, prefabId))
+            throw new RuntimeException(
+                    String.format("The user '%s' doesn't own this prefab '%s'", userId, prefabId)
+            );
 
-        AnswerGroup answerGroup = answerRepository.findByPrefabIdAndIdAndUserId(prefabId, answerId, userId)
+        AnswerGroup answerGroup = answerRepository.findByPrefabIdAndId(prefabId, answerId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         String.format("No response found for prefabId '%s' and answerId '%s'", prefabId, answerId)
                 ));
 
-        return convertAnswerGroup(answerGroup, userId, user);
+        userId = answerGroup.getUserId();
+
+        AnswerUser answerUser = new AnswerUser("Guest", "");
+        if (!Objects.equals(userId, "guest")) {
+            answerUser.setName(String.format("%s %s", user.getFirstName(), user.getLastName()));
+            answerUser.setEmail(user.getEmail());
+        }
+
+        answerGroup.setUser(answerUser);
+
+        answerGroup = updateAnswerForm(answerGroup, prefabId);
+
+        return answerGroup;
     }
 
     /**
@@ -86,45 +92,30 @@ public class AnswerService {
      * @return the found AnswerGroup
      * @throws ResourceNotFoundException if no response is found for the provided IDs
      */
-    public List<AnswerOutput> getAnswerGroupByPrefabId(String prefabId, User user){
-        List<AnswerGroup> answerGroup;
-        String userId = "guest";
-
-        if(user != null)
-            userId = user.getId();
-
-        answerGroup = answerRepository.findByPrefabIdAndUserId(prefabId, userId)
+    public List<AnswerGroup> getAnswerGroupByPrefabId(String prefabId){
+        List<AnswerGroup> answerGroup = answerRepository.findByPrefabId(prefabId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         String.format("No response found for prefabId '%s'", prefabId)
                 ));
 
+        return answerGroup.stream().peek(group -> {
+            String userId = group.getUserId();
+            AnswerUser answerUser = new AnswerUser();
 
+            answerUser.setName("Guest");
+            answerUser.setEmail("");
 
-        List<AnswerOutput> answerOutputs = new ArrayList<>();
-        for (AnswerGroup group : answerGroup) {
-            answerOutputs.add(convertAnswerGroup(group, userId, user));
-        }
+            if (!Objects.equals(userId, "guest")) {
+                User user = userService.getUserById(userId);
+                if (user != null) {
+                    answerUser.setName(String.format("%s %s", user.getFirstName(), user.getLastName()));
+                    answerUser.setEmail(user.getEmail());
+                }
+            }
 
-        return answerOutputs;
-    }
+            group.setUser(answerUser);
 
-    public AnswerOutput convertAnswerGroup(AnswerGroup answerGroup, String userId, User user) {
-        AnswerUser answer_user = new AnswerUser();
-        answer_user.setName("Guest");
-        answer_user.setEmail("");
-
-        if(!Objects.equals(userId, "guest")){
-            answer_user.setName(String.format("%s %s", user.getFirstName(), user.getLastName()));
-            answer_user.setEmail(user.getEmail());
-        }
-
-        return new AnswerOutput(
-                answerGroup.getId(),
-                answerGroup.getPrefabId(),
-                answer_user,
-                answerGroup.getCreatedAt(),
-                answerGroup.getAnswers()
-        );
+        }).collect(Collectors.toList());
     }
 
     /**
@@ -146,17 +137,17 @@ public class AnswerService {
      * Checks that the prefab is active and the number of answer groups matches the prefab's groups.
      *
      * @param prefabId the ID of the prefab
-     * @param request  the answer request containing the answers
+     * @param answerGroup  the answer request containing the answers
      * @throws ValidationException if the prefab is inactive or the number of groups does not match
      */
-    public void checkFormPrefab(String prefabId, AnswerRequest request) {
+    public void checkFormPrefab(String prefabId, AnswerGroup answerGroup) throws ValidationException {
         Prefab prefab = prefabService.getPrefabById(prefabId, false);
 
         if(!prefab.getIsActive())
             throw new ValidationException("The prefab is inactive.");
 
         List<Group> prefabGroups = prefab.getGroups();
-        List<AnswerSubGroup> answerGroups = request.getAnswers();
+        List<AnswerSubGroup> answerGroups = answerGroup.getAnswers();
 
         if (prefabGroups.size() != answerGroups.size()) {
             throw new ValidationException("Number of groups in the prefab does not match the number of answer groups.");
@@ -175,7 +166,7 @@ public class AnswerService {
      * @param index      the index of the group in the list
      * @throws ValidationException if the groups do not match
      */
-    public void checkAnswerGroup(Group prefabGroup, AnswerSubGroup answerGroup, String index) {
+    public void checkAnswerGroup(Group prefabGroup, AnswerSubGroup answerGroup, String index) throws ValidationException {
         if (!prefabGroup.getName().equals(answerGroup.getGroup())) {
             throw new ValidationException(
                     String.format("Group index '%s': Prefab and Answer names don't match.\nPrefab: '%s', Answer: '%s'",
@@ -203,7 +194,7 @@ public class AnswerService {
      * @param question the answer question to validate
      * @throws ValidationException if validation fails
      */
-    public void checkAnswerField(Field field, AnswerQuestion question) {
+    public void checkAnswerField(Field field, AnswerQuestion question) throws ValidationException {
         validateFieldAndQuestion(field.getLabel(), question.getQuestion());
 
         TypeField type = field.getType();
@@ -218,8 +209,23 @@ public class AnswerService {
                 return;
         }
 
+        System.out.print(answer);
+        System.out.print(answer == "No answer");
+        System.out.print("\n");
+
+        if(answer == null && field.getOptional())
+            return;
+
+        if(answer == null && !field.getOptional())
+            throw new ValidationException(String.format("Answer at the question '%s' is empty.",
+                    question.getQuestion()));
+
         validateAnswerType(answer, type);
-        field.getValidationRules().forEach(rule -> checkAnswerRule(answer, rule, field));
+        try{ // Validate the field rules
+            fieldService.validateFieldsRules(field, answer);
+        }catch (ValidationRuleException e){
+            throw new ValidationException(e.getMessage());
+        }
     }
 
     /**
@@ -244,29 +250,15 @@ public class AnswerService {
      * @throws ValidationException if the answer does not match the expected type and the type is unsupported
      */
     private void validateAnswerType(Object answer, TypeField type) {
-        switch (type) {
-            case TEXT:
-                if (!(answer instanceof String)) {
-                    throw new ValidationException(String.format("Answer '%s' is not a string", answer));
-                }
-                break;
-            case NUMBER:
+        if(type == TypeField.TEXT && !(answer instanceof String))
+            throw new ValidationException(String.format("Answer '%s' is not a string", answer));
+        if(type == TypeField.NUMBER)
                 validateNumericAnswer(answer);
-                break;
-            case DATE:
+        if(type == TypeField.DATE)
                 validateDateAnswer(answer);
-                break;
-            case GEOLOCATION:
+        if(type == TypeField.GEOLOCATION)
                 validateGeolocationAnswer(answer);
-                break;
-            case MULTIPLE_CHOICE:
-                if (!(answer instanceof List)) {
-                    throw new ValidationException(String.format("Answer '%s' is not a list", answer));
-                }
-                break;
-            default:
-                throw new ValidationException("Unsupported TypeField: " + type);
-        }
+
     }
 
     /**
@@ -277,7 +269,7 @@ public class AnswerService {
      */
     private void validateNumericAnswer(Object answer) {
         try {
-            Float.parseFloat((String) answer);
+            new BigDecimal(answer.toString());
         } catch (NumberFormatException e) {
             throw new ValidationException(String.format("Answer '%s' is not a valid number", answer));
         }
@@ -291,10 +283,10 @@ public class AnswerService {
      */
     private void validateDateAnswer(Object answer) {
         try {
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
             LocalDate.parse((String) answer, formatter);
         } catch (DateTimeParseException e) {
-            throw new ValidationException(String.format("Answer '%s' is not a valid date", answer));
+            throw new ValidationException(String.format("Answer '%s' has not a valid format date", answer));
         }
     }
 
@@ -332,142 +324,39 @@ public class AnswerService {
         }
     }
 
-    /**
-     * Checks the answer rule against the provided answer.
-     *
-     * @param answer the answer to validate
-     * @param rule   the validation rule to apply
-     * @param field  the field associated with the rule
-     * @throws ValidationException if the rule validation fails
-     */
-    public void checkAnswerRule(Object answer, Rule rule, Field field) {
-        Option options = field.getOptions();
-        TypeRule type = rule.getType();
-        String value = rule.getValue();
+    public AnswerGroup updateAnswerForm(AnswerGroup answerGroup, String prefabId){
+        Prefab prefab = prefabService.getPrefabById(prefabId, false);
+        Field field;
+        TypeField type;
+        int a = 0;
+        int b;
 
-        switch (type) {
-            case IS_EMAIL:
-                checkRegex(value, answer, "email");
-                break;
-            case REGEX_MATCH:
-                checkRegex(value, answer, "regex");
-                break;
-            case IS_RADIO:
-            case IS_MULTIPLE_CHOICE:
-                checkMultiChoice(answer, type, options);
-                break;
-            case MAX_LENGTH:
-            case MIN_LENGTH:
-            case MAX_VALUE:
-            case MIN_VALUE:
-                checkIntervalValues(value, type, answer);
-                break;
-            default:
-                throw new ValidationException("Unsupported TypeRule: " + type);
-        }
-    }
+        List<AnswerSubGroup> answerSubGroups = answerGroup.getAnswers();
 
-    /**
-     * Checks if the given answer matches the specified regex pattern.
-     *
-     * @param regex the regex pattern to match against
-     * @param answer the answer to validate
-     * @param type   the type of the answer (e.g., "email")
-     * @throws ValidationException if the answer is not a valid string or
-     * if the answer does not match the regex pattern
-     */
-    private void checkRegex(String regex, Object answer, String type) {
-        if (!(answer instanceof String)) {
-            throw new ValidationException(String.format("Answer '%s' is not a valid %s", answer, type));
-        }
+        for(AnswerSubGroup answerSubGroup: answerSubGroups){
+            b = 0;
+            List<AnswerQuestion> answerQuestions = answerSubGroup.getQuestions();
 
-        Matcher matcher = Pattern.compile(type.equals("email") ? "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$" : regex)
-                .matcher((String) answer);
-        if (!matcher.matches()) {
-            throw new ValidationException(String.format("Answer '%s' is not a valid %s", answer, type));
-        }
-    }
+            for(AnswerQuestion answerQuestion: answerQuestions){
+                field = prefab.getGroups().get(a).getFields().get(b);
+                type = field.getType();
+                answerQuestion.setType(type);
 
-    /**
-     * Validates the answer against multiple-choice options.
-     *
-     * @param answer the answer to validate
-     * @param type   the type of rule for validation (e.g., IS_RADIO)
-     * @param options the options containing valid choices
-     * @throws ValidationException if the answer is not a list or does not meet the validation criteria
-     */
-    public void checkMultiChoice(Object answer, TypeRule type, Option options) {
-        if (!(answer instanceof List)) {
-            throw new ValidationException(String.format("Answer '%s' is not a list", answer));
-        }
+                if(type == TypeField.MULTIPLE_CHOICE){
 
-        List<String> answers = (List<String>) answer;
-        if (type == TypeRule.IS_RADIO && answers.size() != 1) {
-            throw new ValidationException(String.format("Must contain one single answer: '%s'", answer));
-        }
+                    answerQuestion.setChoices(field.getOptions().getChoices().toArray(new String[0]));
+                    if(field.getValidationRules().contains(TypeRule.IS_RADIO))
+                        answerQuestion.setAnswer(new String[]{(String) answerQuestion.getAnswer()});
+                }
 
-        List<String> choices = options.getChoices();
-        boolean found = answers.stream().anyMatch(choices::contains);
+                b++;
+            }
 
-        if (!found) {
-            throw new ValidationException(String.format("Answer '%s' is not an option of the list '%s'",
-                    answer, choices));
+            answerSubGroup.setQuestions(answerQuestions);
+            a++;
         }
-    }
+        answerGroup.setAnswers(answerSubGroups);
 
-    /**
-     * Checks the interval values for the given answer based on the type rule.
-     *
-     * @param value the string value to check
-     * @param type  the type of rule (e.g., MIN_LENGTH, MAX_LENGTH)
-     * @param answer the answer to validate
-     */
-    public void checkIntervalValues(String value, TypeRule type, Object answer) {
-        if (value.isEmpty()) {
-            return;
-        }
-
-        int limit = Integer.parseInt(value);
-        if (type == TypeRule.MIN_LENGTH || type == TypeRule.MAX_LENGTH) {
-            validateStringLength(answer, limit, type);
-        } else {
-            validateNumericValue(answer, limit, type);
-        }
-    }
-
-    /**
-     * Validates the length of the given answer against specified limits.
-     *
-     * @param answer the answer to validate
-     * @param limit  the length limit for validation
-     * @param type   the type of rule for length validation (e.g., MIN_LENGTH, MAX_LENGTH)
-     * @throws ValidationException if the answer is not a string or does not meet the length requirement
-     */
-    private void validateStringLength(Object answer, int limit, TypeRule type) {
-        if (!(answer instanceof String answerStr)) {
-            throw new ValidationException(String.format("Answer '%s' is not a string", answer));
-        }
-        if ((type == TypeRule.MIN_LENGTH && answerStr.length() < limit) ||
-                (type == TypeRule.MAX_LENGTH && answerStr.length() > limit)) {
-            throw new ValidationException(String.format("Answer '%s' does not meet the length requirement for '%s'",
-                    answer, type));
-        }
-    }
-
-    /**
-     * Validates the numeric value of the answer against a specified limit.
-     *
-     * @param answer the answer to validate
-     * @param limit  the numeric limit for validation
-     * @param type   the type of rule for numeric validation (e.g., MIN_VALUE, MAX_VALUE)
-     * @throws ValidationException if the answer does not meet the value requirement
-     */
-    private void validateNumericValue(Object answer, int limit, TypeRule type) {
-        float answerValue = Float.parseFloat((String) answer);
-        if ((type == TypeRule.MIN_VALUE && answerValue < limit) ||
-                (type == TypeRule.MAX_VALUE && answerValue > limit)) {
-            throw new ValidationException(String.format("Answer '%s' does not meet the value requirement for '%s'",
-                    answer, type));
-        }
+        return answerGroup;
     }
 }

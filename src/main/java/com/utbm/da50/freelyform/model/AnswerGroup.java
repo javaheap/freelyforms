@@ -1,51 +1,67 @@
 package com.utbm.da50.freelyform.model;
 
 import com.mongodb.lang.NonNull;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import com.utbm.da50.freelyform.dto.answer.AnswerOutputDetailled;
+import com.utbm.da50.freelyform.dto.answer.AnswerOutputSimple;
+import lombok.*;
+import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
  * Represents a group of answers submitted by a user for a specific prefab.
  */
-@Document
+@Getter
+@AllArgsConstructor(access = AccessLevel.PRIVATE) // Make the all-args constructor private
 @NoArgsConstructor
-@AllArgsConstructor
-@Data
+@Document(collection = "answers")
+@Builder
 public class AnswerGroup {
-
-    /**
-     * Unique identifier for the answer group.
-     */
     @Id
     private String id;
 
-    /**
-     * Identifier for the prefab associated with the answers.
-     * This field is required and cannot be null.
-     */
-    @NonNull
+    @Setter
     private String prefabId;
 
-    /**
-     * Identifier for the user who submitted the answers.
-     */
+    @Setter
+    private AnswerUser user;
+
+    @Setter
     private String userId;
 
-    /**
-     * Date when the answer group was created.
-     * This field is required and cannot be null.
-     */
-    @NonNull
-    private LocalDate createdAt;
+    @CreatedDate
+    @Setter
+    private LocalDateTime createdAt;
 
-    /**
-     * List of answer subgroups submitted by the user.
-     */
+    @Setter
     private List<AnswerSubGroup> answers;
+
+    @Builder
+    public AnswerGroup(@NonNull String prefabId, @NonNull String userId, @NonNull List<AnswerSubGroup> answers) {
+        this.prefabId = prefabId;
+        this.userId = userId;
+        this.answers = answers;
+    }
+
+    public AnswerOutputDetailled toRest() {
+        return new AnswerOutputDetailled(
+                id,
+                prefabId,
+                user.toRest(),
+                createdAt,
+                answers
+        );
+    }
+
+    public AnswerOutputSimple toRestSimple() {
+        return new AnswerOutputSimple(
+                id,
+                user,
+                createdAt
+        );
+    }
 }

@@ -55,7 +55,7 @@ public class JwtTokenService {
         String id = user.getId();
         String firstName = user.getFirstName();
         String lastName = user.getLastName();
-        String role = user.getRole().toString();
+        String role = user.getRole().stream().map(Enum::name).reduce((a, b) -> a + "," + b).orElse("");
 
         // Add custom claims (firstName, lastName, etc.) to the extraClaims map
         extraClaims.put("id", id);

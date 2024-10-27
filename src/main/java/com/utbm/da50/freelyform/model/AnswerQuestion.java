@@ -1,6 +1,8 @@
 package com.utbm.da50.freelyform.model;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.mongodb.lang.NonNull;
+import com.utbm.da50.freelyform.enums.TypeField;
 import lombok.Data;
 
 /**
@@ -15,6 +17,11 @@ public class AnswerQuestion {
      */
     @NonNull
     private String question;
+
+    private TypeField type;
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private String[] choices;
 
     /**
      * The answer provided for the question.

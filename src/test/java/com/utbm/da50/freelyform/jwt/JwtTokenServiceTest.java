@@ -9,6 +9,9 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
+import java.util.Collections;
+import java.util.HashSet;
+
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -32,7 +35,7 @@ class JwtTokenServiceTest {
         when(userDetails.getId()).thenReturn("123");
         when(userDetails.getFirstName()).thenReturn("John");
         when(userDetails.getLastName()).thenReturn("Doe");
-        when(userDetails.getRole()).thenReturn(UserRole.USER);  // Set a valid role
+        when(userDetails.getRole()).thenReturn(new HashSet<>(Collections.singleton(UserRole.USER)));  // Set a valid role
     }
 
     @Test
