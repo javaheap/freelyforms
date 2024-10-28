@@ -36,9 +36,6 @@ public class Prefab {
     @Setter
     private List<Group> groups;
 
-    @Setter
-    private Boolean isAlreadyAnswered = false;
-
     @CreatedDate
     @Setter
     private LocalDateTime createdAt;
@@ -49,7 +46,7 @@ public class Prefab {
     @Setter
     private String userId;
 
-    public PrefabOutputDetailled toRest() {
+    public PrefabOutputDetailled toRest(Boolean isAlreadyAnswered) {
         return new PrefabOutputDetailled(
                 id,
                 name,
@@ -59,8 +56,11 @@ public class Prefab {
                 tags,
                 groups.stream().map(Group::toRest).collect(Collectors.toList()),
                 isActive,
-                isAlreadyAnswered != null && isAlreadyAnswered
+                isAlreadyAnswered
         );
+    }
+    public PrefabOutputDetailled toRest() {
+        return toRest(Boolean.FALSE);
     }
 
     public PrefabOutputSimple toRestSimple() {

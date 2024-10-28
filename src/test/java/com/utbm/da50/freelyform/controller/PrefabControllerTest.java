@@ -4,6 +4,7 @@ import com.utbm.da50.freelyform.dto.*;
 import com.utbm.da50.freelyform.model.Prefab;
 import com.utbm.da50.freelyform.model.User;
 import com.utbm.da50.freelyform.service.PrefabService;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
@@ -12,7 +13,6 @@ import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -21,7 +21,6 @@ import java.util.NoSuchElementException;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
@@ -76,26 +75,40 @@ public class PrefabControllerTest {
     @Test
     public void testGetPrefabById_Success() {
         when(prefabService.getPrefabById(mockPrefab.getId(), false)).thenReturn(mockPrefab);
-        when(mockPrefab.toRest()).thenReturn(prefabOutput);
+        when(mockPrefab.toRest(Boolean.FALSE)).thenReturn(prefabOutput);
 
         ResponseEntity<PrefabOutputDetailled> response = prefabController.getPrefabById(mockPrefab.getId(), false, null);
 
         assertThat(response.getStatusCode(), is(HttpStatus.OK));
         assertThat(response.getBody(), is(notNullValue()));
         verify(prefabService, times(1)).getPrefabById(mockPrefab.getId(), false);
+        assertThat(prefabOutput.getIsAlreadyAnswered(), is(Boolean.FALSE));
     }
 
-    // TODO : FIX THIS TEST
-//    @Test
-//    public void testGetPrefabById_NotFound() {
-//        when(prefabService.getPrefabById(anyString(), anyBoolean())).thenThrow(new NoSuchElementException());
-//
-//        assertThrows(ResponseStatusException.class, () -> {
-//            prefabController.getPrefabById("invalid_id", false,null);
-//        });
-//
-//        verify(prefabService, times(1)).getPrefabById(anyString(), anyBoolean());
-//    }
+    @Test
+    public void testGetPrefabById_WithHiddenAndUser() {
+        when(prefabService.getPrefabById(mockPrefab.getId(), true)).thenReturn(mockPrefab);
+        when(prefabService.isAlreadyAnswered(mockPrefab, mockUser.getId())).thenReturn(true);
+        when(mockPrefab.toRest(true)).thenReturn(prefabOutput);
+
+        ResponseEntity<PrefabOutputDetailled> response = prefabController.getPrefabById(mockPrefab.getId(), true, mockUser);
+
+        assertThat(response.getStatusCode(), is(HttpStatus.OK));
+        assertThat(response.getBody(), is(notNullValue()));
+        verify(prefabService, times(1)).getPrefabById(mockPrefab.getId(), true);
+        verify(prefabService, times(1)).isAlreadyAnswered(mockPrefab, mockUser.getId());
+    }
+
+    @Test
+    public void testGetPrefabById_NotFound() {
+        when(prefabService.getPrefabById(anyString(), anyBoolean())).thenThrow(new NoSuchElementException());
+
+        ResponseEntity<PrefabOutputDetailled> response = prefabController.getPrefabById("invalid_id", false, null);
+
+        Assertions.assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+
+        verify(prefabService, times(1)).getPrefabById("invalid_id", false);
+    }
 
     @Test
     public void testCreatePrefab_Success() {

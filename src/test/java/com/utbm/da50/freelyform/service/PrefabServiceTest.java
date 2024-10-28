@@ -1,10 +1,12 @@
 package com.utbm.da50.freelyform.service;
 
+import com.utbm.da50.freelyform.exceptions.UniqueResponseException;
 import com.utbm.da50.freelyform.exceptions.ValidationFieldException;
 import com.utbm.da50.freelyform.model.Field;
 import com.utbm.da50.freelyform.model.Group;
 import com.utbm.da50.freelyform.model.Prefab;
 import com.utbm.da50.freelyform.repository.PrefabRepository;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
@@ -26,6 +28,8 @@ public class PrefabServiceTest {
 
     @Mock
     private FieldService fieldService;
+    @Mock
+    private AnswerService answerService;
 
     @InjectMocks
     private PrefabService prefabService;
@@ -160,11 +164,11 @@ public class PrefabServiceTest {
         Field hiddenField = new Field();
         hiddenField.setHidden(true);
 
-        Field hiddenField2 = new Field();
-        hiddenField2.setHidden(false);
+        Field visibleField = new Field();
+        visibleField.setHidden(false);
 
         Group groupWithHiddenField = new Group();
-        groupWithHiddenField.setFields(Arrays.asList(hiddenField,hiddenField2));
+        groupWithHiddenField.setFields(Arrays.asList(hiddenField, visibleField));
 
         Prefab prefabWithHiddenField = Prefab.builder()
                 .id("prefab123")
@@ -176,12 +180,41 @@ public class PrefabServiceTest {
 
         when(prefabRepository.findById("prefab123")).thenReturn(Optional.of(prefabWithHiddenField));
 
-        Prefab resultPrefab = prefabService.getPrefabById("prefab123", false);
+        Prefab resultPrefab = prefabService.getPrefabById("prefab123", true);
 
-        assertThat(resultPrefab.getGroups().getFirst().getFields(), hasSize(1));
-        assertThat(resultPrefab.getGroups().getFirst().getFields().getFirst().getHidden(), is(false));
+        assertThat(resultPrefab.getGroups().get(0).getFields(), hasSize(2));
+        assertThat(resultPrefab.getGroups().get(0).getFields().get(0).getHidden(), is(true));
         verify(prefabRepository, times(1)).findById("prefab123");
     }
+
+    @Test
+    public void testIsAlreadyAnswered() throws UniqueResponseException {
+        // Test when groups are null
+        mockPrefab.setGroups(null);
+        Assertions.assertTrue(prefabService.isAlreadyAnswered(mockPrefab, "user123"));
+
+        // Test when groups are empty
+        mockPrefab.setGroups(Collections.emptyList());
+        Assertions.assertTrue(prefabService.isAlreadyAnswered(mockPrefab, "user123"));
+
+        // Test when groups contain empty fields
+        Group groupWithEmptyFields = new Group();
+        groupWithEmptyFields.setFields(Collections.emptyList());
+        mockPrefab.setGroups(Collections.singletonList(groupWithEmptyFields));
+        Assertions.assertTrue(prefabService.isAlreadyAnswered(mockPrefab, "user123"));
+
+        // UniqueResponseException
+        Group groupWithFields = new Group();
+        groupWithFields.setFields(Collections.singletonList(new Field()));
+        mockPrefab.setGroups(Collections.singletonList(groupWithFields));
+        doThrow(new UniqueResponseException("User has already answered")).when(answerService).validateUniqueUserResponse("prefab123", "user123");
+        Assertions.assertTrue(prefabService.isAlreadyAnswered(mockPrefab, "user123"));
+
+        doNothing().when(answerService).validateUniqueUserResponse("prefab123", "user123");
+        Assertions.assertFalse(prefabService.isAlreadyAnswered(mockPrefab, "user123"));
+    }
+
+
 
     @Test
     public void testGetPrefabsByUser_Success() {

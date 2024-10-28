@@ -55,25 +55,20 @@ public class PrefabService {
         return prefabToDelete;
     }
 
-    /**
-     * Get prefab by id and check if the user has already answered to this prefab
-     * @param id prefab id
-     * @param userId user id of the connected user
-     * @return prefab with the flag isAlreadyAnswered set to true if user has already answered
-     */
-    public Prefab getPrefabById(String id, String userId) {
-        Prefab prefab = getPrefabById(id);
+    public Boolean isAlreadyAnswered(Prefab prefab, String userId) {
         // Set the flag if user has already answered or groups is empty or null
-        if (prefab.getGroups() == null || prefab.getGroups().isEmpty()) {
-            prefab.setIsAlreadyAnswered(Boolean.TRUE);
-            return prefab;
+        if (prefab.getGroups() == null ||
+                prefab.getGroups().isEmpty() ||
+                prefab.getGroups().stream().anyMatch(Group::isFieldsEmpty)
+        ) {
+            return Boolean.TRUE;
         }
         try {
             answerService.validateUniqueUserResponse(prefab.getId(), userId);
         } catch (UniqueResponseException e) {
-            prefab.setIsAlreadyAnswered(Boolean.TRUE);
+            return Boolean.TRUE;
         }
-        return prefab;
+        return Boolean.FALSE;
     }
 
 
@@ -85,7 +80,6 @@ public class PrefabService {
         Prefab p = repository.findById(prefabId).orElseThrow(
                 () -> new NoSuchElementException("Prefab with id " + prefabId + " not found")
         );
-        if (p.getGroups() == null || p.getGroups().isEmpty()) p.setIsAlreadyAnswered(Boolean.TRUE);
         if (withHiddenFields)
             return p;
         return Prefab.builder()
@@ -94,7 +88,6 @@ public class PrefabService {
                 .description(p.getDescription())
                 .tags(p.getTags())
                 .isActive(p.getIsActive())
-                .isAlreadyAnswered(p.getIsAlreadyAnswered())
                 .groups(
                         p.getGroups().stream()
                                 .map(group -> {

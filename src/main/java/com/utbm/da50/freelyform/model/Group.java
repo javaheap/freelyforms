@@ -17,6 +17,10 @@ public class Group {
     private String name;
     private List<Field> fields;
 
+    public boolean isFieldsEmpty() {
+        return fields == null || fields.isEmpty();
+    }
+
     public GroupInput toRest() {
         return new GroupInput(
                 id, name, fields.stream().map(Field::toRest).collect(Collectors.toList())
