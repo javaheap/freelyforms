@@ -73,10 +73,8 @@ public class PrefabController {
     )
     {
         try {
-            Prefab prefab = prefabService.getPrefabById(id, Boolean.valueOf(withHidden));
-            if(user!=null && withHidden){ // Handle isAlreadyAnswered field from the connected user
-                return ResponseEntity.ok(prefab.toRest(prefabService.isAlreadyAnswered(prefab, user.getId())));
-            }
+            Prefab prefab = prefabService.getPrefabById(id, withHidden);
+            if(user!=null) return ResponseEntity.ok(prefab.toRest(prefabService.isAlreadyAnswered(prefab, user.getId())));
             return ResponseEntity.ok(prefab.toRest(prefabService.isAlreadyAnswered(prefab, "")));
         } catch (NoSuchElementException exception) {
             return ResponseEntity.status(404).build();
