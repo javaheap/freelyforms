@@ -89,14 +89,27 @@ public class AnswerService {
      * Retrieves answer groups by prefab ID
      *
      * @param prefabId the ID of the prefab
+     * @param lng   the longitude of the searched location
+     * @param lat   the latitude of the searched location
+     * @param distance  the distance of research
      * @return the found AnswerGroup
      * @throws ResourceNotFoundException if no response is found for the provided IDs
      */
-    public List<AnswerGroup> getAnswerGroupByPrefabId(String prefabId){
+    public List<AnswerGroup> getAnswerGroupByPrefabId(String prefabId, Optional<Double> lng,
+                                                      Optional<Double> lat, Optional<Integer> distance){
+
+        boolean allParamsPresent = lat.isPresent() && lng.isPresent() && distance.isPresent();
+        boolean noParamsPresent = lat.isEmpty() && lng.isEmpty() && distance.isEmpty();
+
+        if (!allParamsPresent && !noParamsPresent)
+            throw new ValidationException(
+                    String.format("The request (lng:'%s', lat:'%s' and distance:'%s') is not valid", lng, lat, distance)
+            );
+
         List<AnswerGroup> answerGroup = answerRepository.findByPrefabId(prefabId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        String.format("No response found for prefabId '%s'", prefabId)
-                ));
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            String.format("No response found for prefabId '%s'", prefabId)
+                    ));
 
         return answerGroup.stream().peek(group -> {
             String userId = group.getUserId();
@@ -209,14 +222,10 @@ public class AnswerService {
                 return;
         }
 
-        System.out.print(answer);
-        System.out.print(answer == "No answer");
-        System.out.print("\n");
-
         if(answer == null && field.getOptional())
             return;
 
-        if(answer == null && !field.getOptional())
+        if(answer == null)
             throw new ValidationException(String.format("Answer at the question '%s' is empty.",
                     question.getQuestion()));
 
@@ -310,11 +319,8 @@ public class AnswerService {
             }
 
             if (jsonNode.has("lat") && jsonNode.has("lng")) {
-                double lat = jsonNode.get("lat").asDouble();
-                double lng = jsonNode.get("lng").asDouble();
-
-                System.out.println("Latitude: " + lat);
-                System.out.println("Longitude: " + lng);
+                jsonNode.get("lat").asDouble();
+                jsonNode.get("lng").asDouble();
             } else {
                 throw new ValidationException("Geolocation answer must contain both 'lat' and 'lng' fields.");
             }
