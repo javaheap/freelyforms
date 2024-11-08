@@ -11,6 +11,7 @@ import com.utbm.da50.freelyform.repository.AnswerRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import javax.swing.text.Document;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -42,6 +43,7 @@ public class AnswerService {
         String userId = Optional.ofNullable(user).map(User::getId).orElse("guest");
         validateUniqueUserResponse(prefabId, userId);
         checkFormPrefab(prefabId, answerGroup);
+        answerGroup = updateAnswerForm(answerGroup, prefabId, false, true);
 
         answerGroup.setUserId(userId);
         answerGroup.setPrefabId(prefabId);
@@ -80,7 +82,7 @@ public class AnswerService {
 
         answerGroup.setUser(answerUser);
 
-        answerGroup = updateAnswerForm(answerGroup, prefabId);
+        answerGroup = updateAnswerForm(answerGroup, prefabId, true, false);
 
         return answerGroup;
     }
@@ -106,10 +108,20 @@ public class AnswerService {
                     String.format("The request (lng:'%s', lat:'%s' and distance:'%s') is not valid", lng, lat, distance)
             );
 
-        List<AnswerGroup> answerGroup = answerRepository.findByPrefabId(prefabId)
+        List<AnswerGroup> answerGroup;
+
+//        if(lat.isEmpty())
+            answerGroup = answerRepository.findByPrefabId(prefabId)
                     .orElseThrow(() -> new ResourceNotFoundException(
                             String.format("No response found for prefabId '%s'", prefabId)
                     ));
+//        else
+//            answerGroup = answerRepository.findByPrefabIdAndLocationNear(prefabId, lat.orElse(0.0),
+//                            lng.orElse(0.0), distance.orElse(0))
+//                    .orElseThrow(() -> new ResourceNotFoundException(
+//                            String.format("No response found for prefabId '%s' and location: lng: '%s', lat: '%s' " +
+//                                    "and distance: '%s'", prefabId, lng, lat, distance)
+//                    ));
 
         return answerGroup.stream().peek(group -> {
             String userId = group.getUserId();
@@ -330,7 +342,7 @@ public class AnswerService {
         }
     }
 
-    public AnswerGroup updateAnswerForm(AnswerGroup answerGroup, String prefabId){
+    public AnswerGroup updateAnswerForm(AnswerGroup answerGroup, String prefabId, Boolean updateMultipleChoice, Boolean updateGeoloc){
         Prefab prefab = prefabService.getPrefabById(prefabId, false);
         Field field;
         TypeField type;
@@ -348,11 +360,12 @@ public class AnswerService {
                 type = field.getType();
                 answerQuestion.setType(type);
 
-                if(type == TypeField.MULTIPLE_CHOICE){
+                if(type == TypeField.MULTIPLE_CHOICE && updateMultipleChoice){
+                    answerQuestion = updateFieldMultiple(answerQuestion, field);
+                }
 
-                    answerQuestion.setChoices(field.getOptions().getChoices().toArray(new String[0]));
-                    if(field.getValidationRules().contains(TypeRule.IS_RADIO))
-                        answerQuestion.setAnswer(new String[]{(String) answerQuestion.getAnswer()});
+                if(type == TypeField.GEOLOCATION && updateGeoloc){
+                    updateFieldGeoloc(answerQuestion);
                 }
 
                 b++;
@@ -364,5 +377,32 @@ public class AnswerService {
         answerGroup.setAnswers(answerSubGroups);
 
         return answerGroup;
+    }
+
+    public AnswerQuestion updateFieldMultiple(AnswerQuestion answerQuestion, Field field){
+        answerQuestion.setChoices(field.getOptions().getChoices().toArray(new String[0]));
+        if(field.getValidationRules().contains(TypeRule.IS_RADIO))
+            answerQuestion.setAnswer(new String[]{(String) answerQuestion.getAnswer()});
+        return answerQuestion;
+    }
+
+    public AnswerQuestion updateFieldGeoloc(AnswerQuestion answerQuestion){
+        Object answer = answerQuestion.getAnswer();
+        if (answer instanceof Map) {
+            Map<String, Object> answerMap = (Map<String, Object>) answer;
+            if (answerMap.containsKey("lat") && answerMap.containsKey("lng")) {
+                double lat = (double) answerMap.get("lat");
+                double lng = (double) answerMap.get("lng");
+
+                // Create the new GeoJSON format using a HashMap
+                Map<String, Object> geoJsonAnswer = new HashMap<>();
+                geoJsonAnswer.put("type", "Point");
+                geoJsonAnswer.put("coordinates", List.of(lng, lat)); // [longitude, latitude] order
+
+                // Set the transformed answer back
+                answerQuestion.setAnswer(geoJsonAnswer);
+            }
+        }
+        return answerQuestion;
     }
 }
