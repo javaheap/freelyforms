@@ -2,16 +2,24 @@ package com.utbm.da50.freelyform.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.mongodb.BasicDBObject;
 import com.utbm.da50.freelyform.enums.TypeRule;
 import com.utbm.da50.freelyform.exceptions.*;
 import com.utbm.da50.freelyform.model.AnswerUser;
 import com.utbm.da50.freelyform.enums.TypeField;
 import com.utbm.da50.freelyform.model.*;
+import com.utbm.da50.freelyform.model.Field;
 import com.utbm.da50.freelyform.repository.AnswerRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.geo.Point;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.aggregation.*;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.NearQuery;
 import org.springframework.stereotype.Service;
 
-import javax.swing.text.Document;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -30,6 +38,9 @@ public class AnswerService {
     private final PrefabService prefabService;
     private final UserService userService;
     private final FieldService fieldService;
+
+    @Autowired
+    private MongoTemplate mongoTemplate;
 
     /**
      * Processes a user's answer by validating it and saving it to the repository.
@@ -110,18 +121,14 @@ public class AnswerService {
 
         List<AnswerGroup> answerGroup;
 
-//        if(lat.isEmpty())
+        if(noParamsPresent)
             answerGroup = answerRepository.findByPrefabId(prefabId)
                     .orElseThrow(() -> new ResourceNotFoundException(
                             String.format("No response found for prefabId '%s'", prefabId)
                     ));
-//        else
-//            answerGroup = answerRepository.findByPrefabIdAndLocationNear(prefabId, lat.orElse(0.0),
-//                            lng.orElse(0.0), distance.orElse(0))
-//                    .orElseThrow(() -> new ResourceNotFoundException(
-//                            String.format("No response found for prefabId '%s' and location: lng: '%s', lat: '%s' " +
-//                                    "and distance: '%s'", prefabId, lng, lat, distance)
-//                    ));
+        else
+            answerGroup = searchAnswerGroupsByLocationAndPrefab(prefabId, lat.orElse(0.0), lng.orElse(0.0),
+                    distance.orElse(0));
 
         return answerGroup.stream().peek(group -> {
             String userId = group.getUserId();
@@ -404,5 +411,65 @@ public class AnswerService {
             }
         }
         return answerQuestion;
+    }
+
+
+    public List<AnswerGroup> searchAnswerGroupsByLocationAndPrefab(String prefabId, double latitude, double longitude, double distanceKm) {
+        try {
+            System.out.println("Searching with parameters: prefabId=" + prefabId +
+                    ", lat=" + latitude + ", lon=" + longitude +
+                    ", distanceKm=" + distanceKm);
+
+            double distanceMeters = distanceKm * 1000;
+
+            NearQuery nearQuery = NearQuery.near(new Point(longitude, latitude))
+                    .maxDistance(distanceMeters)
+                    .spherical(true);
+
+            // Modified aggregation pipeline
+            TypedAggregation<AnswerGroup> aggregation = Aggregation.newAggregation(
+                    AnswerGroup.class,
+                    // Start with geoNear
+                    Aggregation.geoNear(nearQuery, "distance"),
+
+                    // Match prefabId
+                    Aggregation.match(Criteria.where("prefabId").is(prefabId)),
+
+                    // Project to maintain original structure
+                    Aggregation.project()
+                            .and("$_id").as("id")
+                            .and("$prefabId").as("prefabId")
+                            .and("$userId").as("userId")
+                            .and("$createdAt").as("createdAt")
+                            .and("$distance").as("distance")
+                            .and("$answers").as("answers"),
+
+                    // Sort by distance
+                    Aggregation.sort(Sort.Direction.ASC, "distance")
+            );
+
+            System.out.println("Executing aggregation: " + aggregation.toString());
+
+            AggregationResults<AnswerGroup> results = mongoTemplate.aggregate(
+                    aggregation,
+                    "answers",
+                    AnswerGroup.class
+            );
+
+            List<AnswerGroup> mappedResults = results.getMappedResults();
+            System.out.println("Found " + mappedResults.size() + " results");
+
+            // Debug first result if any
+            if (!mappedResults.isEmpty()) {
+                System.out.println("First result: " + mappedResults.get(0));
+            }
+
+            return mappedResults;
+
+        } catch (Exception e) {
+            System.out.println("Error during search: " + e.getMessage());
+            e.printStackTrace();
+            throw new RuntimeException("Failed to perform geospatial search: " + e.getMessage(), e);
+        }
     }
 }
