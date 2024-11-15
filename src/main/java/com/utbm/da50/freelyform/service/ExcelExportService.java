@@ -158,12 +158,19 @@ public class ExcelExportService {
                 }
                 break;
             case MULTIPLE_CHOICE:
-                if (value instanceof String[]) {
-                    cell.setCellValue(String.join(", ", (String[]) value));
-                } else if (value instanceof List) {
+                if (value instanceof List) {
                     cell.setCellValue(String.join(", ", ((List<?>) value).stream()
                             .map(Object::toString)
                             .toArray(String[]::new)));
+                } else {
+                    cell.setCellValue(value.toString());
+                }
+                break;
+            case GEOLOCATION:
+                if (value instanceof Map<?, ?> map) {
+                    cell.setCellValue("https://www.google.com/maps/search/?api=1&query=<lat>,<lng>"
+                            .replace("<lat>", map.get("lat").toString())
+                            .replace("<lng>", map.get("lng").toString()));
                 } else {
                     cell.setCellValue(value.toString());
                 }
