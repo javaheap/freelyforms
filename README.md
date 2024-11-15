@@ -14,29 +14,15 @@ Get the project up and running in just a few steps:
    ```
 3. Use debuging mode or start the application locally:
     ```bash
-   docker compose up mongodb 
+   docker compose up mongo 
    ```
    Then run the application from your IDE.
 
 ## 👩‍💻 **For Developers**
 
 ### 🔥 **To connect as an admin**
-Email: admin@freelyform.com
-Password: admin123
 
-### 🔥 **Hot Reload with IntelliJ IDEA**
-
-Make your development workflow smooth with **hot reload**! Here's how to set it up in IntelliJ:
-
-1. **Enable automatic project build:**
-
-    - Go to `Settings` → `Build, Execution, Deployment` → `Compiler` → **Enable** "Build project automatically"
-
-2. **Allow auto-make during runtime:**
-
-    - Go to `Settings` → `Advanced Settings` → `Compiler` → **Enable** "Allow auto-make to start even if developed application is running"
-
-Now, you can make changes and see them instantly without restarting the app! 🧑‍💻
+Information about admin login will show in red in the terminal when launching the app
 
 ---
 
