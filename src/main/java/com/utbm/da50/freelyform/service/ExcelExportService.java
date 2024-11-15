@@ -168,6 +168,15 @@ public class ExcelExportService {
                     cell.setCellValue(value.toString());
                 }
                 break;
+            case GEOLOCATION:
+                if (value instanceof Map<?, ?> map) {
+                    cell.setCellValue("https://www.google.com/maps/search/?api=1&query=<lat>,<lng>"
+                            .replace("<lat>", map.get("lat").toString())
+                            .replace("<lng>", map.get("lng").toString()));
+                } else {
+                    cell.setCellValue(value.toString());
+                }
+                break;
             default:
                 cell.setCellValue(value.toString());
         }
