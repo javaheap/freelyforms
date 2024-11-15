@@ -73,7 +73,7 @@ public class ExcelExportService {
             if (fieldAnswer != null) {
                 Row row = sheet.createRow(rowNum++);
                 row.createCell(0).setCellValue(answer.getUser().getName());
-                row.createCell(1).setCellValue(answer.getUser().getEmail().isEmpty() ? "N/A" : answer.getUser().getEmail());
+                row.createCell(1).setCellValue(answer.getUser().getEmail().isEmpty()? "N/A" : answer.getUser().getEmail());
                 row.createCell(2).setCellValue(answer.getCreatedAt().toString());
                 setCellValue(row.createCell(3), fieldAnswer, field.getType());
             }
