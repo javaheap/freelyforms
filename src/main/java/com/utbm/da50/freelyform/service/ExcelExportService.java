@@ -129,12 +129,12 @@ public class ExcelExportService {
         descriptionRow.createCell(1).setCellValue(field.getLabel());
     }
 
-    private Object findFieldAnswer(AnswerGroup answer, String groupName, String fieldLabel) {
+    private Object  findFieldAnswer(AnswerGroup answer, String groupName, String fieldLabel) {
         return answer.getAnswers().stream()
                 .filter(subGroup -> groupName.equals(subGroup.getGroup()))
                 .flatMap(subGroup -> subGroup.getQuestions().stream())
-                .filter(question -> fieldLabel.equals(question.getQuestion()))
-                .map(AnswerQuestion::getAnswer)
+                .filter(question -> fieldLabel.equals(question.getQuestion()) )
+                .map(question -> question.getAnswer() != null ? question.getAnswer() : "N/A")
                 .findFirst()
                 .orElse(null);
     }
