@@ -21,6 +21,21 @@ Get the project up and running in just a few steps:
     ```bash
    docker-compose -f docker-compose.prod.yml up
    ```
+4. To run project in codespace :
+The container will build automatically and after completion, mongodb will ask for a connection, use this connection : 
+mongodb://admin:pass@localhost:27017/freelyform?authSource=admin
+
+After the connection is done launch project : 
+
+   ```bash
+   ./mvnw package
+   ```
+ ```bash
+    java -jar target/freelyform-0.0.1-SNAPSHOT.jar
+   ```
+
+If you have a 502 error while visiting port 8080, put the port visibity to public.
+If you have a 403 error, it's working, it's just spring security blocking your way.
 
 ## 👩‍💻 **For Developers**
 
