@@ -23,19 +23,19 @@ Get the project up and running in just a few steps:
    ```
 4. To run project in codespace :
 The container will build automatically and after completion, mongodb will ask for a connection, use this connection : 
-mongodb://admin:pass@localhost:27017/freelyform?authSource=admin
+```mongodb://admin:pass@localhost:27017/freelyform?authSource=admin```
 
 After the connection is done launch project : 
 
    ```bash
    ./mvnw package
    ```
- ```bash
+   ```bash
     java -jar target/freelyform-0.0.1-SNAPSHOT.jar
    ```
 
-If you have a 502 error while visiting port 8080, put the port visibity to public.
-If you have a 403 error, it's working, it's just spring security blocking your way.
+##### 🛠️ If you have a 502 error while visiting port 8080, put the port visibity to public.
+##### 🛠️ If you have a 403 error, it's working, it's just spring security blocking your way.
 
 ## 👩‍💻 **For Developers**
 
@@ -53,7 +53,7 @@ Want to check or manipulate the data in your MongoDB instance? No problem! Simpl
 🌐 [Mongo Express UI](http://localhost:8081)
 
 This provides an easy-to-use interface for your database operations. 🗃️
-Username: admin, Password: pass
+``` Username: admin, Password: pass ```
 
 ---
 
