@@ -1,9 +1,11 @@
 package com.utbm.da50.freelyform.controller;
 
 import com.utbm.da50.freelyform.dto.*;
+import com.utbm.da50.freelyform.enums.UserRole;
 import com.utbm.da50.freelyform.exceptions.ValidationException;
 import com.utbm.da50.freelyform.model.Prefab;
 import com.utbm.da50.freelyform.model.User;
+import com.utbm.da50.freelyform.service.ExcelExportService;
 import com.utbm.da50.freelyform.service.PrefabService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -14,12 +16,15 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.lang.Nullable;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.stream.Collectors;
@@ -31,10 +36,12 @@ import java.util.stream.Collectors;
 public class PrefabController {
 
     private final PrefabService prefabService;
+    private final ExcelExportService excelExportService;
 
     @Autowired
-    public PrefabController(PrefabService prefabService) {
+    public PrefabController(PrefabService prefabService, ExcelExportService excelExportService) {
         this.prefabService = prefabService;
+        this.excelExportService = excelExportService;
     }
 
     @GetMapping("")
@@ -168,5 +175,31 @@ public class PrefabController {
                 NoSuchElementException e){
             return ResponseEntity.status(404).build();
         }
+    }
+    @GetMapping("/prefab/{prefabId}/export")
+    @Operation(summary = "Export answers of a prefab to an Excel file")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Excel file generated"),
+            @ApiResponse(responseCode = "404", description = "Prefab not found for generation")
+    })
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<byte[]> exportAnswers(@PathVariable String prefabId, @AuthenticationPrincipal User user) throws IOException {
+        if (user == null || !user.getRole().contains(UserRole.ADMIN))
+            return ResponseEntity.status(403).build();
+
+        try{
+            byte[] excelFile = excelExportService.generateExcelForPrefab(prefabId);
+
+            String filename = String.format("answers-%s.xlsx", prefabId);
+
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION,
+                            "attachment; filename=\"" + filename + "\"")
+                    .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                    .body(excelFile);
+        } catch (NoSuchElementException e){
+            return ResponseEntity.status(404).build();
+        }
+
     }
 }

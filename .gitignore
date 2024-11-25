@@ -3,6 +3,10 @@ target/
 !**/src/main/**/target/
 !**/src/test/**/target/
 
+
+### Style ###
+!/src/main/resources/templates/answer-template.xlsx
+
 ### STS ###
 .apt_generated
 .classpath
@@ -35,3 +39,4 @@ bin/
 .vscode/settings.json
 
 .DS_Store
+

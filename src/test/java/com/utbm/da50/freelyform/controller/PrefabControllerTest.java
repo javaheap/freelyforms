@@ -1,8 +1,10 @@
 package com.utbm.da50.freelyform.controller;
 
 import com.utbm.da50.freelyform.dto.*;
+import com.utbm.da50.freelyform.enums.UserRole;
 import com.utbm.da50.freelyform.model.Prefab;
 import com.utbm.da50.freelyform.model.User;
+import com.utbm.da50.freelyform.service.ExcelExportService;
 import com.utbm.da50.freelyform.service.PrefabService;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -11,13 +13,13 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.NoSuchElementException;
+import java.io.IOException;
+import java.util.*;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
@@ -28,11 +30,15 @@ public class PrefabControllerTest {
 
     @Mock
     private PrefabService prefabService;
+    @Mock
+    private ExcelExportService excelExportService;
 
     @InjectMocks
     private PrefabController prefabController;
 
     private User mockUser;
+    private User adminUser;
+
     private Prefab mockPrefab;
     private PrefabInput prefabInput;
     private PrefabOutputDetailled prefabOutput;
@@ -41,11 +47,22 @@ public class PrefabControllerTest {
     public void setUp() {
         MockitoAnnotations.openMocks(this);
 
+        adminUser = new User();
+        adminUser.setId("admin123");
+        adminUser.setRole(new HashSet<>(){{
+            add(UserRole.USER);
+            add(UserRole.ADMIN);
+        }});
+
         mockUser = new User();
         mockUser.setId("user123");
+        mockUser.setRole(new HashSet<>(){{
+            add(UserRole.USER);
+        }});
 
         mockPrefab = mock(Prefab.class);
         mockPrefab.setUserId(mockUser.getId());
+
 
         prefabInput = new PrefabInput();
         prefabInput.setName("Test Prefab");
@@ -181,4 +198,57 @@ public class PrefabControllerTest {
         assertThat(response.getStatusCode(), is(HttpStatus.NOT_FOUND));
         verify(prefabService, times(1)).getPrefabById("invalid_id");
     }
+
+    @Test
+    public void testExportAnswers_Success() throws IOException {
+        String prefabId = "prefab123";
+        byte[] mockExcelFile = new byte[]{1, 2, 3, 4};
+
+        when(excelExportService.generateExcelForPrefab(prefabId)).thenReturn(mockExcelFile);
+
+        ResponseEntity<byte[]> response = prefabController.exportAnswers(prefabId, adminUser);
+
+        assertThat(response.getStatusCode(), is(HttpStatus.OK));
+        assertThat(response.getBody(), is(notNullValue()));
+        assertThat(response.getHeaders().getFirst(HttpHeaders.CONTENT_DISPOSITION), is("attachment; filename=\"answers-prefab123.xlsx\""));
+        assertThat(response.getHeaders().getContentType(), is(MediaType.APPLICATION_OCTET_STREAM));
+        verify(excelExportService, times(1)).generateExcelForPrefab(prefabId);
+    }
+
+    @Test
+    public void testExportAnswers_Forbidden() throws IOException {
+        String prefabId = "prefab123";
+
+        ResponseEntity<byte[]> response = prefabController.exportAnswers(prefabId, mockUser);
+
+        assertThat(response.getStatusCode(), is(HttpStatus.FORBIDDEN));
+        verify(excelExportService, never()).generateExcelForPrefab(anyString());
+    }
+
+    @Test
+    public void testExportAnswers_NotFound() throws IOException {
+        String prefabId = "prefab123";
+
+        when(excelExportService.generateExcelForPrefab(prefabId)).thenThrow(new NoSuchElementException());
+
+        ResponseEntity<byte[]> response = prefabController.exportAnswers(prefabId, adminUser);
+
+        assertThat(response.getStatusCode(), is(HttpStatus.NOT_FOUND));
+        verify(excelExportService, times(1)).generateExcelForPrefab(prefabId);
+    }
+
+    @Test
+    public void testExportAnswers_Unauthenticated() throws IOException {
+        String prefabId = "prefab123";
+
+        ResponseEntity<byte[]> response = prefabController.exportAnswers(prefabId, null);
+
+        assertThat(response.getStatusCode(), is(HttpStatus.FORBIDDEN));
+        verify(excelExportService, never()).generateExcelForPrefab(anyString());
+    }
+
+
+
+
+
 }
