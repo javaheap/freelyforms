@@ -74,11 +74,8 @@ public class UserSeeder implements CommandLineRunner {
             userRepository.save(adminUser);
             logger.error("\u001B[31m!!!!!!! ADMIN USER CREATED , EMAIL: {} , PASSWORD: {} !!!!!!\u001B[0m", ADMIN_EMAIL, password);
         } else {
-            // Update existing admin user with new password
-            User adminUser = userRepository.findByEmail(ADMIN_EMAIL).get();
-            adminUser.setPassword(passwordEncoder.encode(password));
-            userRepository.save(adminUser);
-            logger.error("\u001B[31m!!!!!!! ADMIN USER UPDATED , EMAIL: {} , NEW PASSWORD: {} !!!!!!\u001B[0m", ADMIN_EMAIL, password);
+            // Admin already exists in the db
+            logger.error("\u001B[31m!!!!!!! ADMIN USER ALREADY EXISTS : {} , USE SAME PASSWORD AS BEFORE !!!!!!\u001B[0m", ADMIN_EMAIL, password);
         }
     }
 

@@ -22,7 +22,8 @@ Get the project up and running in just a few steps:
 
 ### 🔥 **To connect as an admin**
 
-Information about admin login will show in red in the terminal when launching the app
+Information about admin login will show in red in the terminal when launching the app for the first time, the password will be shown only once.
+You can delete the current admin account if needed via the mongo express UI.
 
 ---
 
@@ -33,6 +34,7 @@ Want to check or manipulate the data in your MongoDB instance? No problem! Simpl
 🌐 [Mongo Express UI](http://localhost:8081)
 
 This provides an easy-to-use interface for your database operations. 🗃️
+Username: admin, Password: pass
 
 ---
 
