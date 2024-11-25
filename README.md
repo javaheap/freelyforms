@@ -12,11 +12,15 @@ Get the project up and running in just a few steps:
     ```bash
    docker compose up
    ```
-3. Use debuging mode or start the application locally:
+2. To use debugging mode or start the application locally:
     ```bash
    docker compose up mongo 
    ```
    Then run the application from your IDE.
+3. To start the application in production mode:
+    ```bash
+   docker-compose -f docker-compose.prod.yml up
+   ```
 
 ## 👩‍💻 **For Developers**
 
