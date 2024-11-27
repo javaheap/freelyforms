@@ -1,3 +1,3 @@
 spring.application.name=freelyform
-
-
+spring.data.mongodb.uri=mongodb://admin:pass@localhost:27017/freelyform?authSource=admin
+jwt_secret=e94e2e8bdca8e6a7b99d0a681ce81b8ce9517249304198c85501329842e0796d

@@ -6,6 +6,7 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
@@ -18,10 +19,14 @@ import java.util.function.Function;
 @Service
 public class JwtTokenService {
 
-    // Get secret key from .env file
-    private static final String SECRET_KEY = System.getenv("JWT_SECRET");
+    // Get secret key from properties file
+    @Value("${jwt_secret}")
+    private String SECRET_KEY;
     private static final int TOKEN_DURATION = 1000*60*60*48; // 48 hours
 
+    public void setKey(String SECRET_KEY) {
+        this.SECRET_KEY = SECRET_KEY;
+    }
 
     private Key getSigningKey() {
         byte[] keyBytes = Decoders.BASE64.decode(SECRET_KEY);
@@ -50,7 +55,7 @@ public class JwtTokenService {
         String id = user.getId();
         String firstName = user.getFirstName();
         String lastName = user.getLastName();
-        String role = user.getRole().toString();
+        String role = user.getRole().stream().map(Enum::name).reduce((a, b) -> a + "," + b).orElse("");
 
         // Add custom claims (firstName, lastName, etc.) to the extraClaims map
         extraClaims.put("id", id);
@@ -74,7 +79,7 @@ public class JwtTokenService {
         return (username.equals(userDetails.getUsername()) && !isTokenExpired(jwt));
     }
 
-    private boolean isTokenExpired(String jwt) {
+    public boolean isTokenExpired(String jwt) {
         return extractExpiration(jwt).before(new Date());
     }
 

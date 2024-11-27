@@ -1,22 +1,24 @@
-#Official OpenJDK runtime as a parent image
 FROM openjdk:21-jdk-slim
 
+# Install necessary tools
+RUN apt-get update && apt-get -y upgrade
+RUN apt-get install -y inotify-tools dos2unix
+
+# Set working directory
 ENV HOME=/app
-RUN mkdir -p $HOME
 WORKDIR $HOME
 
+# Copy the project files into the Docker image
+COPY . $HOME
 
-# Copy the project's build files (for Maven)
-COPY ./pom.xml ./
-COPY ./src ./src
+# Convert line endings of scripts to Unix format
+RUN dos2unix $HOME/run.sh $HOME/mvnw
 
-# Install the Maven wrapper
-COPY .mvn/ .mvn
-COPY mvnw ./
-RUN chmod +x mvnw
+# Ensure scripts have execute permissions
+RUN chmod +x $HOME/run.sh $HOME/mvnw
 
-# Package the application (this will also run tests)
-RUN ./mvnw package -DskipTests
+# Expose the necessary ports
+EXPOSE 8080 5005
 
-# Run the app
-CMD ["./mvnw", "spring-boot:run"]
+# Set the entrypoint
+ENTRYPOINT ["./run.sh"]

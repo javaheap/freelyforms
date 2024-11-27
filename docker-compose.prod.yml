@@ -1,0 +1,39 @@
+version: '3.3'
+
+services:
+  app:
+    build:
+      context: ./
+      dockerfile: Dockerfile.prod
+    env_file: ./.env
+    container_name: springboot_app_prod
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_APPLICATION_JSON: '{
+        "spring.data.mongodb.uri" : "mongodb://$MONGODB_USER:$MONGODB_PASSWORD@mongo:$MONGODB_DOCKER_PORT/$MONGODB_DATABASE?authSource=admin"
+      }'
+    depends_on:
+      - mongo
+    restart: always
+    networks:
+      - mongodb_network_prod
+
+  mongo:
+    image: mongo:5.0.2
+    container_name: mongo_prod
+    env_file: ./.env
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=$MONGODB_USER
+      - MONGO_INITDB_ROOT_PASSWORD=$MONGODB_PASSWORD
+    volumes:
+      - mongodb_data:/data
+    restart: always
+    networks:
+      - mongodb_network_prod
+
+volumes:
+  mongodb_data: {}
+
+networks:
+  mongodb_network_prod:

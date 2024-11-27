@@ -3,6 +3,10 @@ target/
 !**/src/main/**/target/
 !**/src/test/**/target/
 
+
+### Style ###
+!/src/main/resources/templates/answer-template.xlsx
+
 ### STS ###
 .apt_generated
 .classpath
@@ -11,9 +15,6 @@ target/
 .settings
 .springBeans
 .sts4-cache
-
-### Env ###
-.env
 
 ### IntelliJ IDEA ###
 .idea
@@ -38,3 +39,4 @@ bin/
 .vscode/settings.json
 
 .DS_Store
+
