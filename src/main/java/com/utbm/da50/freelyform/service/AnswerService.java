@@ -371,9 +371,9 @@ public class AnswerService {
                     answerQuestion = updateFieldMultiple(answerQuestion, field);
                 }
 
-                if(type == TypeField.GEOLOCATION && updateGeoloc){
-                    updateFieldGeoloc(answerQuestion);
-                }
+//                if(type == TypeField.GEOLOCATION && updateGeoloc){
+//                    updateFieldGeoloc(answerQuestion);
+//                }
 
                 b++;
             }
@@ -393,83 +393,96 @@ public class AnswerService {
         return answerQuestion;
     }
 
-    public AnswerQuestion updateFieldGeoloc(AnswerQuestion answerQuestion){
-        Object answer = answerQuestion.getAnswer();
-        if (answer instanceof Map) {
-            Map<String, Object> answerMap = (Map<String, Object>) answer;
-            if (answerMap.containsKey("lat") && answerMap.containsKey("lng")) {
-                double lat = (double) answerMap.get("lat");
-                double lng = (double) answerMap.get("lng");
-
-                // Create the new GeoJSON format using a HashMap
-                Map<String, Object> geoJsonAnswer = new HashMap<>();
-                geoJsonAnswer.put("type", "Point");
-                geoJsonAnswer.put("coordinates", List.of(lng, lat)); // [longitude, latitude] order
-
-                // Set the transformed answer back
-                answerQuestion.setAnswer(geoJsonAnswer);
-            }
-        }
-        return answerQuestion;
-    }
+//    public AnswerQuestion updateFieldGeoloc(AnswerQuestion answerQuestion){
+//        Object answer = answerQuestion.getAnswer();
+//        if (answer instanceof Map) {
+//            Map<String, Object> answerMap = (Map<String, Object>) answer;
+//            if (answerMap.containsKey("lat") && answerMap.containsKey("lng")) {
+//                double lat = (double) answerMap.get("lat");
+//                double lng = (double) answerMap.get("lng");
+//
+//                // Create the new GeoJSON format using a HashMap
+//                Map<String, Object> geoJsonAnswer = new HashMap<>();
+//                geoJsonAnswer.put("type", "Point");
+//                geoJsonAnswer.put("coordinates", List.of(lng, lat)); // [longitude, latitude] order
+//
+//                // Set the transformed answer back
+//                answerQuestion.setAnswer(geoJsonAnswer);
+//            }
+//        }
+//        return answerQuestion;
+//    }
 
 
     public List<AnswerGroup> searchAnswerGroupsByLocationAndPrefab(String prefabId, double latitude, double longitude, double distanceKm) {
-        try {
-            System.out.println("Searching with parameters: prefabId=" + prefabId +
-                    ", lat=" + latitude + ", lon=" + longitude +
-                    ", distanceKm=" + distanceKm);
+        // Récupération des AnswerGroup par prefabId
+        List<AnswerGroup> answerGroups = answerRepository.findByPrefabId(prefabId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        String.format("No response found for prefabId '%s'", prefabId)
+                ));
 
-            double distanceMeters = distanceKm * 1000;
+        // Liste filtrée des AnswerGroups
+        List<AnswerGroup> filteredAnswerGroups = new ArrayList<>();
 
-            NearQuery nearQuery = NearQuery.near(new Point(longitude, latitude))
-                    .maxDistance(distanceMeters)
-                    .spherical(true);
-
-            // Modified aggregation pipeline
-            TypedAggregation<AnswerGroup> aggregation = Aggregation.newAggregation(
-                    AnswerGroup.class,
-                    // Start with geoNear
-                    Aggregation.geoNear(nearQuery, "distance"),
-
-                    // Match prefabId
-                    Aggregation.match(Criteria.where("prefabId").is(prefabId)),
-
-                    // Project to maintain original structure
-                    Aggregation.project()
-                            .and("$_id").as("id")
-                            .and("$prefabId").as("prefabId")
-                            .and("$userId").as("userId")
-                            .and("$createdAt").as("createdAt")
-                            .and("$distance").as("distance")
-                            .and("$answers").as("answers"),
-
-                    // Sort by distance
-                    Aggregation.sort(Sort.Direction.ASC, "distance")
-            );
-
-            System.out.println("Executing aggregation: " + aggregation.toString());
-
-            AggregationResults<AnswerGroup> results = mongoTemplate.aggregate(
-                    aggregation,
-                    "answers",
-                    AnswerGroup.class
-            );
-
-            List<AnswerGroup> mappedResults = results.getMappedResults();
-            System.out.println("Found " + mappedResults.size() + " results");
-
-            // Debug first result if any
-            if (!mappedResults.isEmpty()) {
-                System.out.println("First result: " + mappedResults.get(0));
+        // Parcours de chaque AnswerGroup
+        for (AnswerGroup group : answerGroups) {
+            if (group.getAnswers() != null) {
+                for (AnswerSubGroup answer : group.getAnswers()) {
+                    if (answer.getQuestions() != null) {
+                        for (AnswerQuestion question : answer.getQuestions()) {
+                            if (question.getType() == TypeField.GEOLOCATION) {
+                                Object coordinates = question.getAnswer();
+                                Map<String, Object> answerMap = (Map<String, Object>) coordinates;
+                                if (answerMap.containsKey("lat") && answerMap.containsKey("lng")) {
+                                    double lat = (double) answerMap.get("lat");
+                                    double lng = (double) answerMap.get("lng");
+                                    if (isPointWithinZone(lng, lat, latitude, longitude, distanceKm)) {
+                                        filteredAnswerGroups.add(group);
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
-
-            return mappedResults;
-
-        } catch (Exception e) {
-            System.out.println("Error during search: " + e.getMessage());
-            e.printStackTrace();
-            throw new RuntimeException("Failed to perform geospatial search: " + e.getMessage(), e);
         }
+
+        return filteredAnswerGroups;
+    }
+
+    /**
+     * Vérifie si un point géospatial appartient à une zone définie par un point de repère et une distance.
+     *
+     * @param pointLat       Latitude du point à vérifier.
+     * @param pointLng       Longitude du point à vérifier.
+     * @param referenceLat   Latitude du point de repère.
+     * @param referenceLng   Longitude du point de repère.
+     * @param maxDistanceKm  Distance maximale en kilomètres.
+     * @return true si le point appartient à la zone, sinon false.
+     */
+    private boolean isPointWithinZone(double pointLat, double pointLng, double referenceLat, double referenceLng, double maxDistanceKm) {
+        final double EARTH_RADIUS_KM = 6371.01;
+
+        // Conversion des degrés en radians
+        double lat1Rad = Math.toRadians(pointLat);
+        double lng1Rad = Math.toRadians(pointLng);
+        double lat2Rad = Math.toRadians(referenceLat);
+        double lng2Rad = Math.toRadians(referenceLng);
+
+        // Différences
+        double deltaLat = lat2Rad - lat1Rad;
+        double deltaLng = lng2Rad - lng1Rad;
+
+        // Formule de Haversine
+        double a = Math.pow(Math.sin(deltaLat / 2), 2)
+                + Math.cos(lat1Rad) * Math.cos(lat2Rad) * Math.pow(Math.sin(deltaLng / 2), 2);
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+        // Distance
+        double distance = EARTH_RADIUS_KM * c;
+
+        // Vérification si la distance est dans la limite
+        return distance <= maxDistanceKm;
     }
 }
