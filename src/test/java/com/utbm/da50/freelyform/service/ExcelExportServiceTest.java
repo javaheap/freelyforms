@@ -83,7 +83,7 @@ public class ExcelExportServiceTest {
     void generateExcelForPrefab_ShouldCreateValidExcelFile() throws IOException {
         // Arrange
         when(prefabService.getPrefabById(PREFAB_ID)).thenReturn(mockPrefab);
-        when(answerService.getAnswerGroupByPrefabId(PREFAB_ID)).thenReturn(mockAnswers);
+        when(answerService.getAnswerGroupByPrefabId(PREFAB_ID, null, null, null)).thenReturn(mockAnswers);
 
         // Act
         byte[] excelFile = excelExportService.generateExcelForPrefab(PREFAB_ID);
@@ -146,7 +146,7 @@ public class ExcelExportServiceTest {
 
         // Arrange
         when(prefabService.getPrefabById(PREFAB_ID)).thenReturn(mockPrefab);
-        when(answerService.getAnswerGroupByPrefabId(PREFAB_ID)).thenReturn(mockAnswers);
+        when(answerService.getAnswerGroupByPrefabId(PREFAB_ID, null, null, null)).thenReturn(mockAnswers);
 
         // Act
         byte[] excelFile = excelExportService.generateExcelForPrefab(PREFAB_ID);
