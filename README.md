@@ -12,31 +12,37 @@ Get the project up and running in just a few steps:
     ```bash
    docker compose up
    ```
-3. Use debuging mode or start the application locally:
+2. To use debugging mode or start the application locally:
     ```bash
-   docker compose up mongodb 
+   docker compose up mongo 
    ```
    Then run the application from your IDE.
+3. To start the application in production mode:
+    ```bash
+   docker-compose -f docker-compose.prod.yml up
+   ```
+4. To run project in codespace :
+The container will build automatically and after completion, mongodb will ask for a connection, use this connection : 
+```mongodb://admin:pass@localhost:27017/freelyform?authSource=admin```
+
+After the connection is done launch project : 
+
+   ```bash
+   ./mvnw package
+   ```
+   ```bash
+    java -jar target/freelyform-0.0.1-SNAPSHOT.jar
+   ```
+
+##### 🛠️ If you have a 502 error while visiting port 8080, put the port visibity to public.
+##### 🛠️ If you have a 403 error, it's working, it's just spring security blocking your way.
 
 ## 👩‍💻 **For Developers**
 
 ### 🔥 **To connect as an admin**
-Email: admin@freelyform.com
-Password: admin123
 
-### 🔥 **Hot Reload with IntelliJ IDEA**
-
-Make your development workflow smooth with **hot reload**! Here's how to set it up in IntelliJ:
-
-1. **Enable automatic project build:**
-
-    - Go to `Settings` → `Build, Execution, Deployment` → `Compiler` → **Enable** "Build project automatically"
-
-2. **Allow auto-make during runtime:**
-
-    - Go to `Settings` → `Advanced Settings` → `Compiler` → **Enable** "Allow auto-make to start even if developed application is running"
-
-Now, you can make changes and see them instantly without restarting the app! 🧑‍💻
+Information about admin login will show in red in the terminal when launching the app for the first time, the password will be shown only once.
+You can delete the current admin account if needed via the mongo express UI.
 
 ---
 
@@ -47,6 +53,7 @@ Want to check or manipulate the data in your MongoDB instance? No problem! Simpl
 🌐 [Mongo Express UI](http://localhost:8081)
 
 This provides an easy-to-use interface for your database operations. 🗃️
+``` Username: admin, Password: pass ```
 
 ---
 
