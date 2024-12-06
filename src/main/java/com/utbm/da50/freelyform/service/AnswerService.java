@@ -2,7 +2,6 @@ package com.utbm.da50.freelyform.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.mongodb.BasicDBObject;
 import com.utbm.da50.freelyform.enums.TypeRule;
 import com.utbm.da50.freelyform.exceptions.*;
 import com.utbm.da50.freelyform.model.AnswerUser;
@@ -11,13 +10,6 @@ import com.utbm.da50.freelyform.model.*;
 import com.utbm.da50.freelyform.model.Field;
 import com.utbm.da50.freelyform.repository.AnswerRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Sort;
-import org.springframework.data.geo.Point;
-import org.springframework.data.mongodb.core.MongoTemplate;
-import org.springframework.data.mongodb.core.aggregation.*;
-import org.springframework.data.mongodb.core.query.Criteria;
-import org.springframework.data.mongodb.core.query.NearQuery;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -39,9 +31,6 @@ public class AnswerService {
     private final UserService userService;
     private final FieldService fieldService;
 
-    @Autowired
-    private MongoTemplate mongoTemplate;
-
     /**
      * Processes a user's answer by validating it and saving it to the repository.
      *
@@ -54,7 +43,6 @@ public class AnswerService {
         String userId = Optional.ofNullable(user).map(User::getId).orElse("guest");
         validateUniqueUserResponse(prefabId, userId);
         checkFormPrefab(prefabId, answerGroup);
-        answerGroup = updateAnswerForm(answerGroup, prefabId, false, true);
 
         answerGroup.setUserId(userId);
         answerGroup.setPrefabId(prefabId);
@@ -93,7 +81,7 @@ public class AnswerService {
 
         answerGroup.setUser(answerUser);
 
-        answerGroup = updateAnswerForm(answerGroup, prefabId, true, false);
+        answerGroup = updateAnswerForm(answerGroup, prefabId);
 
         return answerGroup;
     }
@@ -349,7 +337,14 @@ public class AnswerService {
         }
     }
 
-    public AnswerGroup updateAnswerForm(AnswerGroup answerGroup, String prefabId, Boolean updateMultipleChoice, Boolean updateGeoloc){
+    /**
+     * Updates an AnswerGroup instance based on the corresponding prefab configuration.
+     *
+     * @param answerGroup         The AnswerGroup instance to be updated.
+     * @param prefabId            The ID of the prefab used for configuration updates.
+     * @return The updated AnswerGroup instance with modified subgroups and questions.
+     */
+    public AnswerGroup updateAnswerForm(AnswerGroup answerGroup, String prefabId){
         Prefab prefab = prefabService.getPrefabById(prefabId, false);
         Field field;
         TypeField type;
@@ -367,13 +362,9 @@ public class AnswerService {
                 type = field.getType();
                 answerQuestion.setType(type);
 
-                if(type == TypeField.MULTIPLE_CHOICE && updateMultipleChoice){
+                if(type == TypeField.MULTIPLE_CHOICE){
                     answerQuestion = updateFieldMultiple(answerQuestion, field);
                 }
-
-//                if(type == TypeField.GEOLOCATION && updateGeoloc){
-//                    updateFieldGeoloc(answerQuestion);
-//                }
 
                 b++;
             }
@@ -386,6 +377,13 @@ public class AnswerService {
         return answerGroup;
     }
 
+    /**
+     * Updates the fields of an AnswerQuestion instance based on the provided Field.
+     *
+     * @param answerQuestion The AnswerQuestion instance to be updated.
+     * @param field          The Field containing the new configuration and rules.
+     * @return The updated AnswerQuestion instance with modified choices and answer.
+     */
     public AnswerQuestion updateFieldMultiple(AnswerQuestion answerQuestion, Field field){
         answerQuestion.setChoices(field.getOptions().getChoices().toArray(new String[0]));
         if(field.getValidationRules().contains(TypeRule.IS_RADIO))
@@ -393,38 +391,25 @@ public class AnswerService {
         return answerQuestion;
     }
 
-//    public AnswerQuestion updateFieldGeoloc(AnswerQuestion answerQuestion){
-//        Object answer = answerQuestion.getAnswer();
-//        if (answer instanceof Map) {
-//            Map<String, Object> answerMap = (Map<String, Object>) answer;
-//            if (answerMap.containsKey("lat") && answerMap.containsKey("lng")) {
-//                double lat = (double) answerMap.get("lat");
-//                double lng = (double) answerMap.get("lng");
-//
-//                // Create the new GeoJSON format using a HashMap
-//                Map<String, Object> geoJsonAnswer = new HashMap<>();
-//                geoJsonAnswer.put("type", "Point");
-//                geoJsonAnswer.put("coordinates", List.of(lng, lat)); // [longitude, latitude] order
-//
-//                // Set the transformed answer back
-//                answerQuestion.setAnswer(geoJsonAnswer);
-//            }
-//        }
-//        return answerQuestion;
-//    }
-
-
+    /**
+     * Searches for AnswerGroup instances associated with a specific prefab ID and filters them
+     * based on proximity to a given geospatial location within a specified distance.
+     *
+     * @param prefabId   The ID of the prefab to filter answers by.
+     * @param latitude   The latitude of the reference point for filtering.
+     * @param longitude  The longitude of the reference point for filtering.
+     * @param distanceKm The maximum distance in kilometers from the reference point.
+     * @return A list of AnswerGroup instances that contain geolocation data within the specified range.
+     * @throws ResourceNotFoundException if no answers are found for the given prefab ID.
+     */
     public List<AnswerGroup> searchAnswerGroupsByLocationAndPrefab(String prefabId, double latitude, double longitude, double distanceKm) {
-        // Récupération des AnswerGroup par prefabId
         List<AnswerGroup> answerGroups = answerRepository.findByPrefabId(prefabId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         String.format("No response found for prefabId '%s'", prefabId)
                 ));
 
-        // Liste filtrée des AnswerGroups
         List<AnswerGroup> filteredAnswerGroups = new ArrayList<>();
 
-        // Parcours de chaque AnswerGroup
         for (AnswerGroup group : answerGroups) {
             if (group.getAnswers() != null) {
                 for (AnswerSubGroup answer : group.getAnswers()) {
@@ -452,37 +437,34 @@ public class AnswerService {
     }
 
     /**
-     * Vérifie si un point géospatial appartient à une zone définie par un point de repère et une distance.
+     * Checks whether a geospatial point belongs to an area defined by a landmark and a distance.
      *
-     * @param pointLat       Latitude du point à vérifier.
-     * @param pointLng       Longitude du point à vérifier.
-     * @param referenceLat   Latitude du point de repère.
-     * @param referenceLng   Longitude du point de repère.
-     * @param maxDistanceKm  Distance maximale en kilomètres.
-     * @return true si le point appartient à la zone, sinon false.
+     * @param pointLat Latitude of the point to check.
+     * @param pointLng Longitude of the point to check.
+     * @param referenceLat Latitude of reference point.
+     * @param referenceLng Longitude of the reference point.
+     * @param maxDistanceKm Maximum distance in kilometers.
+     * @return true if the point belongs to the zone, otherwise false.
      */
     private boolean isPointWithinZone(double pointLat, double pointLng, double referenceLat, double referenceLng, double maxDistanceKm) {
         final double EARTH_RADIUS_KM = 6371.01;
 
-        // Conversion des degrés en radians
+        // Convert degrees to radians
         double lat1Rad = Math.toRadians(pointLat);
         double lng1Rad = Math.toRadians(pointLng);
         double lat2Rad = Math.toRadians(referenceLat);
         double lng2Rad = Math.toRadians(referenceLng);
 
-        // Différences
+        // Differences
         double deltaLat = lat2Rad - lat1Rad;
         double deltaLng = lng2Rad - lng1Rad;
 
-        // Formule de Haversine
+        // Haversine formula
         double a = Math.pow(Math.sin(deltaLat / 2), 2)
                 + Math.cos(lat1Rad) * Math.cos(lat2Rad) * Math.pow(Math.sin(deltaLng / 2), 2);
         double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
-        // Distance
         double distance = EARTH_RADIUS_KM * c;
-
-        // Vérification si la distance est dans la limite
         return distance <= maxDistanceKm;
     }
 }

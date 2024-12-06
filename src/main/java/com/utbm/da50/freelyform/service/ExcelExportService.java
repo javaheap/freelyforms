@@ -31,7 +31,8 @@ public class ExcelExportService {
     public byte[] generateExcelForPrefab(String prefabId) throws NoSuchElementException, IOException {
         // Get the prefab and all its answers
         Prefab prefab = prefabService.getPrefabById(prefabId);
-        List<AnswerGroup> answers = answerService.getAnswerGroupByPrefabId(prefabId, null, null, null);
+        List<AnswerGroup> answers = answerService.getAnswerGroupByPrefabId(prefabId, Optional.empty(),
+                Optional.empty(), Optional.empty());
 
         try (Workbook workbook = new XSSFWorkbook()) {
             // Create sheets for each field
