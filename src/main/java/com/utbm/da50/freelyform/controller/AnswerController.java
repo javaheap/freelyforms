@@ -54,8 +54,9 @@ public class AnswerController {
             @RequestBody AnswerInput request) throws ResponseStatusException {
         try {
             AnswerGroup answerGroup = request.toAnswer();
-            answerService.processAnswer(prefab_id, user, answerGroup);
-            return ResponseEntity.status(HttpStatus.CREATED).build();
+            String user_id = Optional.ofNullable(user).map(User::getId).orElse("guest");
+            AnswerGroup savedAnswer = answerService.processAnswer(prefab_id, user_id, answerGroup);
+            return ResponseEntity.status(201).body(savedAnswer.toRest());
         } catch (NoSuchElementException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         } catch (Exception e) {

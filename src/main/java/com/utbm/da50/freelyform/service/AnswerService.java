@@ -34,20 +34,20 @@ public class AnswerService {
     /**
      * Processes a user's answer by validating it and saving it to the repository.
      *
-     * @param prefabId the ID of the prefab associated with the answer
-     * @param user     the user submitting the answer
-     * @param answerGroup  the answer request containing the answers
+     * @param prefabId    the ID of the prefab associated with the answer
+     * @param userId        the user submitting the answer
+     * @param answerGroup the answer request containing the answers
+     * @return answerGroup
      * @throws UniqueResponseException if a unique response exists or validation fails
      */
-    public void processAnswer(String prefabId, User user, AnswerGroup answerGroup) throws RuntimeException {
-        String userId = Optional.ofNullable(user).map(User::getId).orElse("guest");
+    public AnswerGroup processAnswer(String prefabId, String userId, AnswerGroup answerGroup) throws RuntimeException {
         validateUniqueUserResponse(prefabId, userId);
         checkFormPrefab(prefabId, answerGroup);
 
         answerGroup.setUserId(userId);
         answerGroup.setPrefabId(prefabId);
 
-        answerRepository.save(answerGroup);
+        return answerRepository.save(answerGroup);
     }
 
     /**
