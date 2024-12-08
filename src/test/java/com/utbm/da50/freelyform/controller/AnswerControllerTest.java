@@ -20,10 +20,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 import com.utbm.da50.freelyform.dto.answer.AnswerInput;
-import com.utbm.da50.freelyform.enums.UserRole;
 import com.utbm.da50.freelyform.model.User;
 
-import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 
@@ -40,24 +38,26 @@ class AnswerControllerTest {
 
     private User mockUser;
     private AnswerInput mockAnswerInput;
+    private AnswerOutputDetailled mockAnswerOutput;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
 
-        mockAnswerGroup = mock(AnswerGroup.class);
-        mockAnswerGroup.setUserId("user123");
-        mockAnswerGroup.setPrefabId("prefab123");
-        mockAnswerGroup.setAnswers(List.of());
-
         mockUser = mock(User.class);
-        mockUser.setId("user123");
-        mockUser.setRole(new HashSet<>(){{
-            add(UserRole.USER);
-        }});
+        when(mockUser.getId()).thenReturn("user123");
+
+        mockAnswerGroup = mock(AnswerGroup.class);
+        when(mockAnswerGroup.getUserId()).thenReturn("user123");
+        when(mockAnswerGroup.getPrefabId()).thenReturn("prefab123");
+        when(mockAnswerGroup.getAnswers()).thenReturn(List.of());
 
         mockAnswerInput = mock(AnswerInput.class);
-        mockAnswerInput.setAnswers(List.of());
+        when(mockAnswerInput.getAnswers()).thenReturn(List.of());
+
+        mockAnswerOutput = mock(AnswerOutputDetailled.class);
+
+        when(mockAnswerGroup.toRest()).thenReturn(mockAnswerOutput);
     }
 
     @Test
@@ -73,9 +73,11 @@ class AnswerControllerTest {
 
     @Test
     void getSpecificAnswer() {
-        when(answerService.getAnswerGroup(anyString(), anyString(), any(User.class))).thenReturn(mockAnswerGroup);
+        when(answerService.getAnswerGroup("prefab123",
+                "answer123", mockUser)).thenReturn(mockAnswerGroup);
 
-        ResponseEntity<AnswerOutputDetailled> response = answerController.getSpecificAnswer("prefab123", "answer123", mockUser);
+        ResponseEntity<AnswerOutputDetailled> response = answerController.getSpecificAnswer("prefab123",
+                "answer123", mockUser);
 
         assertThat(response.getStatusCode(), is(HttpStatus.OK));
         assertThat(response.getBody(), is(notNullValue()));
@@ -84,12 +86,15 @@ class AnswerControllerTest {
 
     @Test
     void getAnswersByPrefabId() {
-        when(answerService.getAnswerGroupByPrefabId(anyString(), any(), any(), any())).thenReturn(List.of(mockAnswerGroup));
+        when(answerService.getAnswerGroupByPrefabId("prefab123",Optional.empty(),
+                Optional.empty(), Optional.empty())).thenReturn(List.of(mockAnswerGroup));
 
-        ResponseEntity<List<AnswerOutputSimple>> response = answerController.getAnswersByPrefabId("prefab123", mockUser, Optional.empty(), Optional.empty(), Optional.empty());
+        ResponseEntity<List<AnswerOutputSimple>> response = answerController.getAnswersByPrefabId("prefab123",
+                mockUser, Optional.empty(), Optional.empty(), Optional.empty());
 
         assertThat(response.getStatusCode(), is(HttpStatus.OK));
         assertThat(response.getBody(), is(notNullValue()));
-        verify(answerService, times(1)).getAnswerGroupByPrefabId(anyString(), any(), any(), any());
+        verify(answerService, times(1)).getAnswerGroupByPrefabId("prefab123",Optional.empty(),
+                Optional.empty(), Optional.empty());
     }
 }
