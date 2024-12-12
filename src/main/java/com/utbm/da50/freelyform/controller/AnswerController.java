@@ -19,9 +19,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.util.List;
-import java.util.Map;
-import java.util.NoSuchElementException;
+import java.util.*;
 
 /**
  * Controller for handling answer-related requests.
@@ -56,10 +54,9 @@ public class AnswerController {
             @RequestBody AnswerInput request) throws ResponseStatusException {
         try {
             AnswerGroup answerGroup = request.toAnswer();
-            answerService.processAnswer(prefab_id, user, answerGroup);
-            return ResponseEntity.status(HttpStatus.CREATED).build();
-        } catch (NoSuchElementException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+            String user_id = Optional.ofNullable(user).map(User::getId).orElse("guest");
+            AnswerGroup savedAnswer = answerService.processAnswer(prefab_id, user_id, answerGroup);
+            return ResponseEntity.status(201).body(savedAnswer.toRest());
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
                     "error", e.getMessage()
@@ -114,12 +111,15 @@ public class AnswerController {
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<AnswerOutputSimple>> getAnswersByPrefabId(
             @PathVariable String prefab_id,
-            @AuthenticationPrincipal User user) {
+            @AuthenticationPrincipal User user,
+            @RequestParam(value = "lat", required = false) Optional<Double> lat,
+            @RequestParam(value = "lng", required = false) Optional<Double> lng,
+            @RequestParam(value = "distance", required = false) Optional<Integer> distance) {
         try {
             if (user == null)
                 return ResponseEntity.status(403).build();
 
-            List<AnswerOutputSimple> answers = answerService.getAnswerGroupByPrefabId(prefab_id)
+            List<AnswerOutputSimple> answers = answerService.getAnswerGroupByPrefabId(prefab_id, lat, lng, distance)
                     .stream()
                     .map(AnswerGroup::toRestSimple)
                     .toList();

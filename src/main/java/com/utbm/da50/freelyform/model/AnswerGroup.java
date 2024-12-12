@@ -1,6 +1,5 @@
 package com.utbm.da50.freelyform.model;
 
-import com.mongodb.lang.NonNull;
 import com.utbm.da50.freelyform.dto.answer.AnswerOutputDetailled;
 import com.utbm.da50.freelyform.dto.answer.AnswerOutputSimple;
 import lombok.*;
@@ -8,7 +7,6 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -39,13 +37,6 @@ public class AnswerGroup {
 
     @Setter
     private List<AnswerSubGroup> answers;
-
-    @Builder
-    public AnswerGroup(@NonNull String prefabId, @NonNull String userId, @NonNull List<AnswerSubGroup> answers) {
-        this.prefabId = prefabId;
-        this.userId = userId;
-        this.answers = answers;
-    }
 
     public AnswerOutputDetailled toRest() {
         return new AnswerOutputDetailled(

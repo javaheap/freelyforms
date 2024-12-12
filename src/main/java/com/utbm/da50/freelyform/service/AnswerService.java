@@ -7,6 +7,7 @@ import com.utbm.da50.freelyform.exceptions.*;
 import com.utbm.da50.freelyform.model.AnswerUser;
 import com.utbm.da50.freelyform.enums.TypeField;
 import com.utbm.da50.freelyform.model.*;
+import com.utbm.da50.freelyform.model.Field;
 import com.utbm.da50.freelyform.repository.AnswerRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -33,20 +34,22 @@ public class AnswerService {
     /**
      * Processes a user's answer by validating it and saving it to the repository.
      *
-     * @param prefabId the ID of the prefab associated with the answer
-     * @param user     the user submitting the answer
-     * @param answerGroup  the answer request containing the answers
+     * @param prefabId    the ID of the prefab associated with the answer
+     * @param userId        the user submitting the answer
+     * @param answerGroup the answer request containing the answers
+     * @return answerGroup
      * @throws UniqueResponseException if a unique response exists or validation fails
+     * @throws ValidationException if the prefab is inactive or the number of groups does not match
      */
-    public void processAnswer(String prefabId, User user, AnswerGroup answerGroup) throws RuntimeException {
-        String userId = Optional.ofNullable(user).map(User::getId).orElse("guest");
+    public AnswerGroup processAnswer(String prefabId, String userId, AnswerGroup answerGroup) throws UniqueResponseException,
+            ValidationException {
         validateUniqueUserResponse(prefabId, userId);
         checkFormPrefab(prefabId, answerGroup);
 
         answerGroup.setUserId(userId);
         answerGroup.setPrefabId(prefabId);
 
-        answerRepository.save(answerGroup);
+        return answerRepository.save(answerGroup);
     }
 
     /**
@@ -57,11 +60,11 @@ public class AnswerService {
      * @return the found AnswerGroup
      * @throws ResourceNotFoundException if no response is found for the provided IDs
      */
-    public AnswerGroup getAnswerGroup(String prefabId, String answerId, User user) {
+    public AnswerGroup getAnswerGroup(String prefabId, String answerId, User user) throws ResourceNotFoundException {
         String userId = user.getId();
 
         if(!prefabService.doesUserOwnPrefab(userId, prefabId))
-            throw new RuntimeException(
+            throw new ResourceNotFoundException(
                     String.format("The user '%s' doesn't own this prefab '%s'", userId, prefabId)
             );
 
@@ -89,14 +92,34 @@ public class AnswerService {
      * Retrieves answer groups by prefab ID
      *
      * @param prefabId the ID of the prefab
+     * @param lng   the longitude of the searched location
+     * @param lat   the latitude of the searched location
+     * @param distance  the distance of research
      * @return the found AnswerGroup
      * @throws ResourceNotFoundException if no response is found for the provided IDs
      */
-    public List<AnswerGroup> getAnswerGroupByPrefabId(String prefabId){
-        List<AnswerGroup> answerGroup = answerRepository.findByPrefabId(prefabId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        String.format("No response found for prefabId '%s'", prefabId)
-                ));
+    public List<AnswerGroup> getAnswerGroupByPrefabId(String prefabId, Optional<Double> lng, Optional<Double> lat,
+                                                      Optional<Integer> distance)
+            throws ResourceNotFoundException, ValidationException {
+
+        boolean allParamsPresent = lat.isPresent() && lng.isPresent() && distance.isPresent();
+        boolean noParamsPresent = lat.isEmpty() && lng.isEmpty() && distance.isEmpty();
+
+        if (!allParamsPresent && !noParamsPresent)
+            throw new ValidationException(
+                    String.format("The request (lng:'%s', lat:'%s' and distance:'%s') is not valid", lng, lat, distance)
+            );
+
+        List<AnswerGroup> answerGroup;
+
+        if(noParamsPresent)
+            answerGroup = answerRepository.findByPrefabId(prefabId)
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            String.format("No response found for prefabId '%s'", prefabId)
+                    ));
+        else
+            answerGroup = searchAnswerGroupsByLocationAndPrefab(prefabId, lat.orElse(0.0), lng.orElse(0.0),
+                    distance.orElse(0));
 
         return answerGroup.stream().peek(group -> {
             String userId = group.getUserId();
@@ -142,6 +165,12 @@ public class AnswerService {
      */
     public void checkFormPrefab(String prefabId, AnswerGroup answerGroup) throws ValidationException {
         Prefab prefab = prefabService.getPrefabById(prefabId, false);
+
+        if(prefab == null){
+            throw new ValidationException(
+                    String.format("No prefab found for prefabId '%s'", prefabId)
+            );
+        }
 
         if(!prefab.getIsActive())
             throw new ValidationException("The prefab is inactive.");
@@ -209,14 +238,10 @@ public class AnswerService {
                 return;
         }
 
-        System.out.print(answer);
-        System.out.print(answer == "No answer");
-        System.out.print("\n");
-
         if(answer == null && field.getOptional())
             return;
 
-        if(answer == null && !field.getOptional())
+        if(answer == null)
             throw new ValidationException(String.format("Answer at the question '%s' is empty.",
                     question.getQuestion()));
 
@@ -235,7 +260,7 @@ public class AnswerService {
      * @param question the question text
      * @throws ValidationException if the field and question do not match
      */
-    private void validateFieldAndQuestion(String field, String question) {
+    private void validateFieldAndQuestion(String field, String question) throws ValidationException {
         if (!Objects.equals(field, question)) {
             throw new ValidationException(String.format("Field mismatch: Field '%s' does not match question '%s'.",
                     field, question));
@@ -249,7 +274,7 @@ public class AnswerService {
      * @param type   the expected type of the field
      * @throws ValidationException if the answer does not match the expected type and the type is unsupported
      */
-    private void validateAnswerType(Object answer, TypeField type) {
+    private void validateAnswerType(Object answer, TypeField type) throws ValidationException {
         if(type == TypeField.TEXT && !(answer instanceof String))
             throw new ValidationException(String.format("Answer '%s' is not a string", answer));
         if(type == TypeField.NUMBER)
@@ -267,7 +292,7 @@ public class AnswerService {
      * @param answer the answer object to validate
      * @throws ValidationException if the answer is not a valid number
      */
-    private void validateNumericAnswer(Object answer) {
+    private void validateNumericAnswer(Object answer) throws ValidationException {
         try {
             new BigDecimal(answer.toString());
         } catch (NumberFormatException e) {
@@ -281,7 +306,7 @@ public class AnswerService {
      * @param answer the answer object to validate
      * @throws ValidationException if the answer is not a valid date
      */
-    private void validateDateAnswer(Object answer) {
+    private void validateDateAnswer(Object answer) throws ValidationException {
         try {
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
             LocalDate.parse((String) answer, formatter);
@@ -296,7 +321,7 @@ public class AnswerService {
      * @param answer the answer object to validate
      * @throws ValidationException if the answer is not a valid geolocation
      */
-    private void validateGeolocationAnswer(Object answer) {
+    private void validateGeolocationAnswer(Object answer) throws ValidationException {
         ObjectMapper objectMapper = new ObjectMapper();
 
         try {
@@ -310,11 +335,8 @@ public class AnswerService {
             }
 
             if (jsonNode.has("lat") && jsonNode.has("lng")) {
-                double lat = jsonNode.get("lat").asDouble();
-                double lng = jsonNode.get("lng").asDouble();
-
-                System.out.println("Latitude: " + lat);
-                System.out.println("Longitude: " + lng);
+                jsonNode.get("lat").asDouble();
+                jsonNode.get("lng").asDouble();
             } else {
                 throw new ValidationException("Geolocation answer must contain both 'lat' and 'lng' fields.");
             }
@@ -324,6 +346,13 @@ public class AnswerService {
         }
     }
 
+    /**
+     * Updates an AnswerGroup instance based on the corresponding prefab configuration.
+     *
+     * @param answerGroup         The AnswerGroup instance to be updated.
+     * @param prefabId            The ID of the prefab used for configuration updates.
+     * @return The updated AnswerGroup instance with modified subgroups and questions.
+     */
     public AnswerGroup updateAnswerForm(AnswerGroup answerGroup, String prefabId){
         Prefab prefab = prefabService.getPrefabById(prefabId, false);
         Field field;
@@ -343,10 +372,7 @@ public class AnswerService {
                 answerQuestion.setType(type);
 
                 if(type == TypeField.MULTIPLE_CHOICE){
-
-                    answerQuestion.setChoices(field.getOptions().getChoices().toArray(new String[0]));
-                    if(field.getValidationRules().contains(TypeRule.IS_RADIO))
-                        answerQuestion.setAnswer(new String[]{(String) answerQuestion.getAnswer()});
+                    answerQuestion = updateFieldMultiple(answerQuestion, field);
                 }
 
                 b++;
@@ -358,5 +384,97 @@ public class AnswerService {
         answerGroup.setAnswers(answerSubGroups);
 
         return answerGroup;
+    }
+
+    /**
+     * Updates the fields of an AnswerQuestion instance based on the provided Field.
+     *
+     * @param answerQuestion The AnswerQuestion instance to be updated.
+     * @param field          The Field containing the new configuration and rules.
+     * @return The updated AnswerQuestion instance with modified choices and answer.
+     */
+    public AnswerQuestion updateFieldMultiple(AnswerQuestion answerQuestion, Field field){
+        answerQuestion.setChoices(field.getOptions().getChoices().toArray(new String[0]));
+        if(field.getValidationRules().contains(TypeRule.IS_RADIO))
+            answerQuestion.setAnswer(new String[]{(String) answerQuestion.getAnswer()});
+        return answerQuestion;
+    }
+
+    /**
+     * Searches for AnswerGroup instances associated with a specific prefab ID and filters them
+     * based on proximity to a given geospatial location within a specified distance.
+     *
+     * @param prefabId   The ID of the prefab to filter answers by.
+     * @param latitude   The latitude of the reference point for filtering.
+     * @param longitude  The longitude of the reference point for filtering.
+     * @param distanceKm The maximum distance in kilometers from the reference point.
+     * @return A list of AnswerGroup instances that contain geolocation data within the specified range.
+     * @throws ResourceNotFoundException if no answers are found for the given prefab ID.
+     */
+    public List<AnswerGroup> searchAnswerGroupsByLocationAndPrefab(String prefabId, double latitude, double longitude,
+                                                                   double distanceKm) throws ResourceNotFoundException {
+        List<AnswerGroup> answerGroups = answerRepository.findByPrefabId(prefabId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        String.format("No response found for prefabId '%s'", prefabId)
+                ));
+
+        List<AnswerGroup> filteredAnswerGroups = new ArrayList<>();
+
+        for (AnswerGroup group : answerGroups) {
+            if (group.getAnswers() != null) {
+                for (AnswerSubGroup answer : group.getAnswers()) {
+                    if (answer.getQuestions() != null) {
+                        for (AnswerQuestion question : answer.getQuestions()) {
+                            Object coordinates = question.getAnswer();
+                            if (coordinates instanceof Map<?, ?>){
+                                Map<String, Object> answerMap = (Map<String, Object>) coordinates;
+                                if (answerMap.containsKey("lat") && answerMap.containsKey("lng")) {
+                                    double lat = (double) answerMap.get("lat");
+                                    double lng = (double) answerMap.get("lng");
+                                    if (isPointWithinZone(lng, lat, latitude, longitude, distanceKm)) {
+                                        filteredAnswerGroups.add(group);
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return filteredAnswerGroups;
+    }
+
+    /**
+     * Checks whether a geospatial point belongs to an area defined by a landmark and a distance.
+     *
+     * @param pointLat Latitude of the point to check.
+     * @param pointLng Longitude of the point to check.
+     * @param referenceLat Latitude of reference point.
+     * @param referenceLng Longitude of the reference point.
+     * @param maxDistanceKm Maximum distance in kilometers.
+     * @return true if the point belongs to the zone, otherwise false.
+     */
+    private boolean isPointWithinZone(double pointLat, double pointLng, double referenceLat, double referenceLng, double maxDistanceKm) {
+        final double EARTH_RADIUS_KM = 6371.01;
+
+        // Convert degrees to radians
+        double lat1Rad = Math.toRadians(pointLat);
+        double lng1Rad = Math.toRadians(pointLng);
+        double lat2Rad = Math.toRadians(referenceLat);
+        double lng2Rad = Math.toRadians(referenceLng);
+
+        // Differences
+        double deltaLat = lat2Rad - lat1Rad;
+        double deltaLng = lng2Rad - lng1Rad;
+
+        // Haversine formula
+        double a = Math.pow(Math.sin(deltaLat / 2), 2)
+                + Math.cos(lat1Rad) * Math.cos(lat2Rad) * Math.pow(Math.sin(deltaLng / 2), 2);
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+        double distance = EARTH_RADIUS_KM * c;
+        return distance <= maxDistanceKm;
     }
 }
