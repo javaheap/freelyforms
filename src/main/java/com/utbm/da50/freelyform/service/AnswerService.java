@@ -425,8 +425,8 @@ public class AnswerService {
                 for (AnswerSubGroup answer : group.getAnswers()) {
                     if (answer.getQuestions() != null) {
                         for (AnswerQuestion question : answer.getQuestions()) {
-                            if (question.getType() == TypeField.GEOLOCATION) {
-                                Object coordinates = question.getAnswer();
+                            Object coordinates = question.getAnswer();
+                            if (coordinates instanceof Map<?, ?>){
                                 Map<String, Object> answerMap = (Map<String, Object>) coordinates;
                                 if (answerMap.containsKey("lat") && answerMap.containsKey("lng")) {
                                     double lat = (double) answerMap.get("lat");
