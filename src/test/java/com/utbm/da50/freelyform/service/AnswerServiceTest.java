@@ -35,39 +35,39 @@ class AnswerServiceTest {
 
     private AnswerGroup mockAnswerGroup;
     private User mockUser;
-    private AnswerInput mockAnswerInput;
-    private Prefab mockPrefab;
-    private Group mockGroup;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
 
-        mockAnswerGroup = mock(AnswerGroup.class);
-        when(mockAnswerGroup.getUserId()).thenReturn("user123");
-        when(mockAnswerGroup.getPrefabId()).thenReturn("prefab123");
-        when(mockAnswerGroup.getAnswers()).thenReturn(List.of());
-
         mockUser = mock(User.class);
         when(mockUser.getId()).thenReturn("user123");
 
-        mockAnswerInput = mock(AnswerInput.class);
+        AnswerInput mockAnswerInput = mock(AnswerInput.class);
         when(mockAnswerInput.getAnswers()).thenReturn(List.of());
 
         Field mockField = new Field();
         mockField.setHidden(false);
 
-        mockGroup = new Group();
-        mockGroup.setId("group123");
-        mockGroup.setFields(List.of(mockField));
+        Group mockGroup = mock(Group.class);
+        when(mockGroup.getId()).thenReturn("group123");
+        when(mockGroup.getName()).thenReturn("group123");
 
-        mockPrefab = mock(Prefab.class);
+        AnswerSubGroup mockSubGroup = mock(AnswerSubGroup.class);
+        when(mockSubGroup.getGroup()).thenReturn("group123");
+
+        Prefab mockPrefab = mock(Prefab.class);
         when(mockPrefab.getId()).thenReturn("prefab123");
         when(mockPrefab.getName()).thenReturn("Test Prefab");
         when(mockPrefab.getDescription()).thenReturn("Test Description");
         when(mockPrefab.getGroups()).thenReturn(List.of(mockGroup));
         when(mockPrefab.getUserId()).thenReturn("user123");
         when(mockPrefab.getIsActive()).thenReturn(true);
+
+        mockAnswerGroup = mock(AnswerGroup.class);
+        when(mockAnswerGroup.getUserId()).thenReturn("user123");
+        when(mockAnswerGroup.getPrefabId()).thenReturn("prefab123");
+        when(mockAnswerGroup.getAnswers()).thenReturn(List.of(mockSubGroup));
 
         when(userService.getUserById(anyString())).thenReturn(mockUser);
         when(prefabService.getPrefabById("prefab123", false)).thenReturn(mockPrefab);
@@ -77,7 +77,7 @@ class AnswerServiceTest {
     void processAnswer() {
         when(answerRepository.save(any(AnswerGroup.class))).thenReturn(mockAnswerGroup);
 
-        AnswerGroup result = answerService.processAnswer("user123", "prefab123", mockAnswerGroup);
+        AnswerGroup result = answerService.processAnswer("prefab123", "user123", mockAnswerGroup);
 
         assertNotNull(result);
         verify(answerRepository, times(1)).save(any(AnswerGroup.class));
@@ -87,20 +87,18 @@ class AnswerServiceTest {
     void processAnswer_prefabNotFound() {
         when(prefabService.getPrefabById("invalid_id", false)).thenReturn(null);
 
-        Exception exception = assertThrows(RuntimeException.class, () -> {
-            answerService.processAnswer("user123", "invalid_id", mockAnswerGroup);
-        });
+        Exception exception = assertThrows(RuntimeException.class, () ->
+                answerService.processAnswer("invalid_id", "user123", mockAnswerGroup));
 
-        assertEquals("Prefab not found", exception.getMessage());
+        assertEquals("No prefab found for prefabId 'invalid_id'", exception.getMessage());
     }
 
     @Test
     void processAnswer_saveThrowsException() {
         when(answerRepository.save(any(AnswerGroup.class))).thenThrow(new RuntimeException("Database error"));
 
-        Exception exception = assertThrows(RuntimeException.class, () -> {
-            answerService.processAnswer("user123", "prefab123", mockAnswerGroup);
-        });
+        Exception exception = assertThrows(RuntimeException.class, () ->
+                answerService.processAnswer("prefab123", "user123", mockAnswerGroup));
 
         assertEquals("Database error", exception.getMessage());
     }
@@ -124,9 +122,8 @@ class AnswerServiceTest {
     void getAnswerGroup_userDoesNotOwnPrefab() {
         when(prefabService.doesUserOwnPrefab("user123", "invalid_id")).thenReturn(false);
 
-        Exception exception = assertThrows(ResourceNotFoundException.class, () -> {
-            answerService.getAnswerGroup("invalid_id", "answer123", mockUser);
-        });
+        Exception exception = assertThrows(ResourceNotFoundException.class, () ->
+                answerService.getAnswerGroup("invalid_id", "answer123", mockUser));
 
         assertEquals("The user 'user123' doesn't own this prefab 'invalid_id'", exception.getMessage());
     }
@@ -136,9 +133,8 @@ class AnswerServiceTest {
         when(prefabService.doesUserOwnPrefab("user123", "prefab123")).thenReturn(true);
         when(answerRepository.findByPrefabIdAndId("prefab123", "invalid_id")).thenReturn(Optional.empty());
 
-        Exception exception = assertThrows(ResourceNotFoundException.class, () -> {
-            answerService.getAnswerGroup("prefab123", "invalid_id", mockUser);
-        });
+        Exception exception = assertThrows(ResourceNotFoundException.class, () ->
+                answerService.getAnswerGroup("prefab123", "invalid_id", mockUser));
 
         assertEquals("No response found for prefabId 'prefab123' and answerId 'invalid_id'", exception.getMessage());
     }

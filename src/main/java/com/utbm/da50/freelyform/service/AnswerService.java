@@ -166,6 +166,12 @@ public class AnswerService {
     public void checkFormPrefab(String prefabId, AnswerGroup answerGroup) throws ValidationException {
         Prefab prefab = prefabService.getPrefabById(prefabId, false);
 
+        if(prefab == null){
+            throw new ValidationException(
+                    String.format("No prefab found for prefabId '%s'", prefabId)
+            );
+        }
+
         if(!prefab.getIsActive())
             throw new ValidationException("The prefab is inactive.");
 
