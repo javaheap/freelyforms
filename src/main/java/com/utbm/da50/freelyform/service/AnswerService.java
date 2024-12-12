@@ -39,8 +39,10 @@ public class AnswerService {
      * @param answerGroup the answer request containing the answers
      * @return answerGroup
      * @throws UniqueResponseException if a unique response exists or validation fails
+     * @throws ValidationException if the prefab is inactive or the number of groups does not match
      */
-    public AnswerGroup processAnswer(String prefabId, String userId, AnswerGroup answerGroup) throws RuntimeException {
+    public AnswerGroup processAnswer(String prefabId, String userId, AnswerGroup answerGroup) throws UniqueResponseException,
+            ValidationException {
         validateUniqueUserResponse(prefabId, userId);
         checkFormPrefab(prefabId, answerGroup);
 
@@ -58,11 +60,11 @@ public class AnswerService {
      * @return the found AnswerGroup
      * @throws ResourceNotFoundException if no response is found for the provided IDs
      */
-    public AnswerGroup getAnswerGroup(String prefabId, String answerId, User user) {
+    public AnswerGroup getAnswerGroup(String prefabId, String answerId, User user) throws ResourceNotFoundException {
         String userId = user.getId();
 
         if(!prefabService.doesUserOwnPrefab(userId, prefabId))
-            throw new RuntimeException(
+            throw new ResourceNotFoundException(
                     String.format("The user '%s' doesn't own this prefab '%s'", userId, prefabId)
             );
 
@@ -96,8 +98,9 @@ public class AnswerService {
      * @return the found AnswerGroup
      * @throws ResourceNotFoundException if no response is found for the provided IDs
      */
-    public List<AnswerGroup> getAnswerGroupByPrefabId(String prefabId, Optional<Double> lng,
-                                                      Optional<Double> lat, Optional<Integer> distance){
+    public List<AnswerGroup> getAnswerGroupByPrefabId(String prefabId, Optional<Double> lng, Optional<Double> lat,
+                                                      Optional<Integer> distance)
+            throws ResourceNotFoundException, ValidationException {
 
         boolean allParamsPresent = lat.isPresent() && lng.isPresent() && distance.isPresent();
         boolean noParamsPresent = lat.isEmpty() && lng.isEmpty() && distance.isEmpty();
@@ -251,7 +254,7 @@ public class AnswerService {
      * @param question the question text
      * @throws ValidationException if the field and question do not match
      */
-    private void validateFieldAndQuestion(String field, String question) {
+    private void validateFieldAndQuestion(String field, String question) throws ValidationException {
         if (!Objects.equals(field, question)) {
             throw new ValidationException(String.format("Field mismatch: Field '%s' does not match question '%s'.",
                     field, question));
@@ -265,7 +268,7 @@ public class AnswerService {
      * @param type   the expected type of the field
      * @throws ValidationException if the answer does not match the expected type and the type is unsupported
      */
-    private void validateAnswerType(Object answer, TypeField type) {
+    private void validateAnswerType(Object answer, TypeField type) throws ValidationException {
         if(type == TypeField.TEXT && !(answer instanceof String))
             throw new ValidationException(String.format("Answer '%s' is not a string", answer));
         if(type == TypeField.NUMBER)
@@ -283,7 +286,7 @@ public class AnswerService {
      * @param answer the answer object to validate
      * @throws ValidationException if the answer is not a valid number
      */
-    private void validateNumericAnswer(Object answer) {
+    private void validateNumericAnswer(Object answer) throws ValidationException {
         try {
             new BigDecimal(answer.toString());
         } catch (NumberFormatException e) {
@@ -297,7 +300,7 @@ public class AnswerService {
      * @param answer the answer object to validate
      * @throws ValidationException if the answer is not a valid date
      */
-    private void validateDateAnswer(Object answer) {
+    private void validateDateAnswer(Object answer) throws ValidationException {
         try {
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
             LocalDate.parse((String) answer, formatter);
@@ -312,7 +315,7 @@ public class AnswerService {
      * @param answer the answer object to validate
      * @throws ValidationException if the answer is not a valid geolocation
      */
-    private void validateGeolocationAnswer(Object answer) {
+    private void validateGeolocationAnswer(Object answer) throws ValidationException {
         ObjectMapper objectMapper = new ObjectMapper();
 
         try {
@@ -402,7 +405,8 @@ public class AnswerService {
      * @return A list of AnswerGroup instances that contain geolocation data within the specified range.
      * @throws ResourceNotFoundException if no answers are found for the given prefab ID.
      */
-    public List<AnswerGroup> searchAnswerGroupsByLocationAndPrefab(String prefabId, double latitude, double longitude, double distanceKm) {
+    public List<AnswerGroup> searchAnswerGroupsByLocationAndPrefab(String prefabId, double latitude, double longitude,
+                                                                   double distanceKm) throws ResourceNotFoundException {
         List<AnswerGroup> answerGroups = answerRepository.findByPrefabId(prefabId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         String.format("No response found for prefabId '%s'", prefabId)

@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 import com.utbm.da50.freelyform.dto.answer.AnswerInput;
+import com.utbm.da50.freelyform.exceptions.ResourceNotFoundException;
 import com.utbm.da50.freelyform.model.*;
 import com.utbm.da50.freelyform.repository.AnswerRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -83,6 +84,28 @@ class AnswerServiceTest {
     }
 
     @Test
+    void processAnswer_prefabNotFound() {
+        when(prefabService.getPrefabById("invalid_id", false)).thenReturn(null);
+
+        Exception exception = assertThrows(RuntimeException.class, () -> {
+            answerService.processAnswer("user123", "invalid_id", mockAnswerGroup);
+        });
+
+        assertEquals("Prefab not found", exception.getMessage());
+    }
+
+    @Test
+    void processAnswer_saveThrowsException() {
+        when(answerRepository.save(any(AnswerGroup.class))).thenThrow(new RuntimeException("Database error"));
+
+        Exception exception = assertThrows(RuntimeException.class, () -> {
+            answerService.processAnswer("user123", "prefab123", mockAnswerGroup);
+        });
+
+        assertEquals("Database error", exception.getMessage());
+    }
+
+    @Test
     void getAnswerGroup() {
         when(prefabService.doesUserOwnPrefab("user123", "prefab123")).thenReturn(true);
         when(answerRepository.findByPrefabIdAndId("prefab123", "answer123")).thenReturn(
@@ -95,6 +118,29 @@ class AnswerServiceTest {
         assertEquals(mockAnswerGroup, result.get());
         verify(answerRepository, times(1)).findByPrefabIdAndId(
                 "prefab123", "answer123");
+    }
+
+    @Test
+    void getAnswerGroup_userDoesNotOwnPrefab() {
+        when(prefabService.doesUserOwnPrefab("user123", "invalid_id")).thenReturn(false);
+
+        Exception exception = assertThrows(ResourceNotFoundException.class, () -> {
+            answerService.getAnswerGroup("invalid_id", "answer123", mockUser);
+        });
+
+        assertEquals("The user 'user123' doesn't own this prefab 'invalid_id'", exception.getMessage());
+    }
+
+    @Test
+    void getAnswerGroup_answerNotFound() {
+        when(prefabService.doesUserOwnPrefab("user123", "prefab123")).thenReturn(true);
+        when(answerRepository.findByPrefabIdAndId("prefab123", "invalid_id")).thenReturn(Optional.empty());
+
+        Exception exception = assertThrows(ResourceNotFoundException.class, () -> {
+            answerService.getAnswerGroup("prefab123", "invalid_id", mockUser);
+        });
+
+        assertEquals("No response found for prefabId 'prefab123' and answerId 'invalid_id'", exception.getMessage());
     }
 
     @Test

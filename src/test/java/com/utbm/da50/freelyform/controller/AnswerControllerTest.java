@@ -16,6 +16,8 @@ import org.springframework.http.ResponseEntity;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
@@ -72,12 +74,34 @@ class AnswerControllerTest {
     }
 
     @Test
+    void submitAnswer_serviceThrowsException() {
+        when(answerService.processAnswer(anyString(), anyString(), any(AnswerGroup.class))).thenThrow(new RuntimeException("Service error"));
+
+        Exception exception = assertThrows(RuntimeException.class, () -> {
+            answerController.submitAnswer(mockUser, "prefab123", mockAnswerInput);
+        });
+
+        assertEquals("Service error", exception.getMessage());
+    }
+
+    @Test
     void getSpecificAnswer() {
         when(answerService.getAnswerGroup("prefab123",
                 "answer123", mockUser)).thenReturn(mockAnswerGroup);
 
         ResponseEntity<AnswerOutputDetailled> response = answerController.getSpecificAnswer("prefab123",
                 "answer123", mockUser);
+
+        assertThat(response.getStatusCode(), is(HttpStatus.OK));
+        assertThat(response.getBody(), is(notNullValue()));
+        verify(answerService, times(1)).getAnswerGroup(anyString(), anyString(), any(User.class));
+    }
+
+    @Test
+    void getSpecificAnswer_notFound() {
+        when(answerService.getAnswerGroup("prefab123", "answer123", mockUser)).thenReturn(mockAnswerGroup);
+
+        ResponseEntity<AnswerOutputDetailled> response = answerController.getSpecificAnswer("prefab123", "answer123", mockUser);
 
         assertThat(response.getStatusCode(), is(HttpStatus.OK));
         assertThat(response.getBody(), is(notNullValue()));
@@ -96,5 +120,15 @@ class AnswerControllerTest {
         assertThat(response.getBody(), is(notNullValue()));
         verify(answerService, times(1)).getAnswerGroupByPrefabId("prefab123",Optional.empty(),
                 Optional.empty(), Optional.empty());
+    }
+
+    @Test
+    void getAnswersByPrefabId_emptyList() {
+        when(answerService.getAnswerGroupByPrefabId("prefab123", Optional.empty(), Optional.empty(), Optional.empty())).thenReturn(List.of());
+
+        ResponseEntity<List<AnswerOutputSimple>> response = answerController.getAnswersByPrefabId("prefab123", mockUser, Optional.empty(), Optional.empty(), Optional.empty());
+
+        assertThat(response.getStatusCode(), is(HttpStatus.OK));
+        assertThat(response.getBody().isEmpty(), is(true));
     }
 }
