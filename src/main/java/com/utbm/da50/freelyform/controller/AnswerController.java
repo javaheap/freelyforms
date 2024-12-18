@@ -56,7 +56,7 @@ public class AnswerController {
             AnswerGroup answerGroup = request.toAnswer();
             String user_id = Optional.ofNullable(user).map(User::getId).orElse("guest");
             AnswerGroup savedAnswer = answerService.processAnswer(prefab_id, user_id, answerGroup);
-            return ResponseEntity.status(201).body(savedAnswer.toRest());
+            return ResponseEntity.status(201).body(savedAnswer);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
                     "error", e.getMessage()
